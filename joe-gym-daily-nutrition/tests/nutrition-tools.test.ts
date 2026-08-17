@@ -54,6 +54,24 @@ describe("priceMeal", () => {
     expect(raw.items[0].fromRawGrams).toBe(428);
   });
 
+  test("counts portions itself so the caller never multiplies", () => {
+    const counted = priceMeal([{ food: "chicken thighs", portions: 3 }], AFTER_LUNCH);
+    const weighed = priceMeal([{ food: "chicken thighs", grams: 192 }], AFTER_LUNCH);
+
+    // 3 x 64g thigh. A caller that multiplied badly and sent 64g would land on one thigh.
+    expect(counted.items[0].grams).toBeCloseTo(192, 0);
+    expect(counted.total.calories).toBeCloseTo(weighed.total.calories, 0);
+    expect(counted.total.protein).toBeCloseTo(47.6, 1);
+  });
+
+  test("ignores a raw flag on a counted portion, which is already cooked-basis", () => {
+    const plain = priceMeal([{ food: "chicken thighs", portions: 3 }], AFTER_LUNCH);
+    const flagged = priceMeal([{ food: "chicken thighs", portions: 3, raw: true }], AFTER_LUNCH);
+
+    // Converting a cooked-basis portion as if it were raw would discount the weight twice.
+    expect(flagged.items[0].grams).toBeCloseTo(plain.items[0].grams, 1);
+  });
+
   test("names foods it does not stock instead of dropping them", () => {
     const result = priceMeal([{ food: "chicken thighs", grams: 200 }, { food: "quinoa", grams: 60 }], AFTER_LUNCH);
 

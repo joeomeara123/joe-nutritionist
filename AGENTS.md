@@ -31,3 +31,6 @@ repo map.
 - 2026-08-17: Food shorthand ranked by alias length resolved "rice" to `rice cakes` -> prefer the alias whose last word is the query (head noun), length only as tie-breaker.
 - 2026-08-17: `npm test` reported a false failure and silently skipped a third of the suite -> Node tests need `--experimental-strip-types`; the Bun-authored tests need their own `bun test` script.
 - 2026-08-17: Chat macro figures must never come from the model -> all arithmetic lives in `lib/nutrition-tools.ts` and reaches Claude only as tool results; the system prompt forbids unsourced numbers.
+- 2026-08-17: Model passed `grams: 64` for "three thighs" because the tool made it multiply 3x64 -> `MealItem.portions` takes the count and the tool does the multiplication; verifying tool *outputs* does not catch a bad tool *input*.
+- 2026-08-17: `.env.local` present and valid but the key still missing -> either a stray parent lockfile moved Next's project root (pin `outputFileTracingRoot`/`turbopack.root`), or an empty exported `ANTHROPIC_API_KEY` shadowed it (dotenv never overrides a defined var; use `env -u`).
+- 2026-08-17: Chat replies rendered as plain text, so markdown from the model showed literal `**asterisks**` -> the system prompt asks for plain prose rather than adding a renderer.

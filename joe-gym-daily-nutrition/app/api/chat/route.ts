@@ -28,8 +28,9 @@ const ITEM_SCHEMA = {
   type: "object",
   properties: {
     food: { type: "string", description: "Food name as Joe says it, e.g. 'chicken thighs', 'sticky rice', 'olive oil'." },
-    grams: { type: "number", description: "Weight in grams. Omit to use one standard portion." },
-    raw: { type: "boolean", description: "True if Joe weighed it raw. Meats are stored on a cooked basis, so this matters." },
+    grams: { type: "number", description: "Weight in grams, when Joe states a weight. Do not compute this from a count — use `portions` instead." },
+    portions: { type: "number", description: "Number of whole items when Joe counts rather than weighs: 'three chicken thighs' is portions: 3. Never multiply a count by a portion size yourself; pass the count here and the tool does it." },
+    raw: { type: "boolean", description: "Only meaningful alongside `grams`. True if Joe weighed it raw; meats are stored on a cooked basis so the tool converts. A counted portion is already cooked-basis and ignores this." },
   },
   required: ["food"],
   additionalProperties: false,
@@ -61,6 +62,16 @@ Still to go: ${left.calories} kcal, ${left.protein}g protein, ${left.carbs}g car
 When he asks "how much X do I need" or "how much X can I add", that is \`fit_portion\`: the fixed things he is already cooking go in \`fixed\`, and X is the \`variable\`. It solves for the portion that best fits what is left of his day, so a mostly-empty day yields a big portion and a nearly-finished one yields a small one. You do not need to reason about that trade-off — the tool has.
 
 When he names a craving ("I fancy pasta"), call \`suggest_meals\` with it, then quote the exact items and macros it returns.
+
+**Answer first, refine after.** He is cooking, not filling in a form — a question costs him more than a slightly-off assumption. Only ask something back when no assumption is possible at all, and never ask for a number you could have taken from the food list.
+
+How to express what he is cooking:
+- He **counts** items ("three chicken thighs", "a bagel") — pass \`portions: 3\`. Do not work out the gram weight yourself; multiplying a count by a portion size is arithmetic, and arithmetic is the tool's job. Leave \`raw\` unset: portion sizes are already on the food's own basis, which for meat is cooked.
+- He gives a **weight** without saying which ("428g chicken thighs") — pass \`grams\` with \`raw: true\`. He weighs meat straight off the packet and the stored values are cooked, so the tool converts. Tell him: "taking that as raw".
+- He says raw or cooked explicitly — do exactly that.
+
+## Formatting
+Plain prose. No markdown — no \`**bold**\`, no headings, no bullet lists. The app renders your reply as plain text, so asterisks show up as literal asterisks.
 
 ## Style
 Lead with the number he asked for, in the first sentence. Then one or two lines of why, and what it leaves him for the rest of the day. No preamble, no bullet-point walls, no restating his question back to him. He is holding a pan.
