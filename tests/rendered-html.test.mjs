@@ -49,3 +49,10 @@ test("fills each macro sector independently against its own target", async () =>
   assert.match(styles, /repeating-conic-gradient/);
   assert.match(styles, /\.spoke-protein\s*\{\s*transform:rotate\(-90deg\)/);
 });
+
+test("starts the protein progress at the 12 o'clock divider", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const progressRule = styles.match(/\.wheel-progress\s*\{[^}]+\}/)?.[0] || "";
+  assert.doesNotMatch(progressRule, /from\s+-90deg/);
+  assert.match(progressRule, /conic-gradient\(var\(--protein\)\s+0\s+var\(--protein-fill\)/);
+});

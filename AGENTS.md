@@ -6,3 +6,4 @@
 - When a pack shows per-100g values but the portion is larger, scale every macro by the full portion weight.
 - Verify parser changes with representative spoken phrases and a production build.
 - 2026-08-17: Owner-only Sites access can reject the in-app browser when its session is not authenticated as the allowed account -> verify the active browser identity or get explicit approval before changing access mode.
+- 2026-08-17: Macro fills began 90° away from their radial dividers -> keep conic-gradient zero at 12 o'clock and convert only spoke angles from top-origin to CSS transform angles.
