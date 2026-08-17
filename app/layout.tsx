@@ -22,7 +22,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Joe's Daily Nutrition",
     description: "A voice-first daily calorie and macro tracker built around Joe's food shop.",
-    icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
+    icons: {
+      icon: [{ url: "/joe-gym-icon.svg", type: "image/svg+xml" }],
+      shortcut: "/joe-gym-icon.svg",
+    },
     openGraph: {
       title: "Joe's Daily Nutrition",
       description: "The whole day, in one circle.",

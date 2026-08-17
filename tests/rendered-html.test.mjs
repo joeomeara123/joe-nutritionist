@@ -20,6 +20,12 @@ test("renders Joe's nutrition dashboard shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
+test("publishes Joe's gym favicon instead of the generic site icon", async () => {
+  const response = await render();
+  const html = await response.text();
+  assert.match(html, /rel="(?:shortcut )?icon"[^>]+href="\/joe-gym-icon\.svg"/i);
+});
+
 test("keeps Joe's targets and current Veetee pot values exact", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const { FOODS, scaled } = await import("../lib/food-parser.ts");

@@ -8,3 +8,4 @@
 - 2026-08-17: Owner-only Sites access can reject the in-app browser when its session is not authenticated as the allowed account -> verify the active browser identity or get explicit approval before changing access mode.
 - 2026-08-17: Macro fills began 90° away from their radial dividers -> keep conic-gradient zero at 12 o'clock and convert only spoke angles from top-origin to CSS transform angles.
 - 2026-08-17: A gram amount after “and” was assigned to the preceding food -> only accept post-food weights when the number immediately follows that food's alias.
+- 2026-08-17: The browser kept showing the old blank-looking favicon -> publish the replacement under a new descriptive asset URL to bypass favicon caching.
