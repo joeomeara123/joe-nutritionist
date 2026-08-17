@@ -27,14 +27,15 @@ describe("every food says where its numbers came from", () => {
     }
   });
 
-  test("a raw-weight yield only sits on a food whose numbers are cooked", () => {
-    // The conversion divides a raw weighing down to cooked mass, so it is meaningless — and
-    // silently wrong — on a food already stored on a raw basis.
+  test("a cook ratio points the right way for the state its food is stored in", () => {
     for (const food of FOODS) {
-      if (food.rawYield === undefined) continue;
-      expect(food.rawYield).toBeGreaterThan(0);
-      expect(food.rawYield).toBeLessThan(1);
-      if (food.source) expect(food.source.basis).toMatch(/cooked|pan fried/i);
+      if (food.cookedRatio === undefined) continue;
+      expect(food.weighedAs).toBeDefined();
+      expect(food.cookedRatio).toBeGreaterThan(0);
+      // Meat loses water and pasta gains it, so the ratio sits either side of 1 — but a food
+      // stored cooked can only lose, and one stored dry can only gain.
+      if (food.weighedAs === "cooked") expect(food.cookedRatio).toBeLessThan(1);
+      if (food.weighedAs === "uncooked") expect(food.cookedRatio).toBeGreaterThan(1);
     }
   });
 });

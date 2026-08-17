@@ -127,6 +127,39 @@ describe("raw weights convert to the cooked basis instead of failing quietly", (
   });
 });
 
+describe("cooked and dry are opposite corrections", () => {
+  test("converts a cooked pasta weight back to the dry basis it is stored on", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const result = parseFood("225g of cooked pasta");
+
+    // Pasta is stored dry and Joe's own note gives the ratio: 100g dry makes 225g cooked.
+    expect(result.items[0].grams).toBeCloseTo(100, 1);
+    expect(result.items[0].calories).toBeCloseTo(351, 0);
+  });
+
+  test("leaves a dry pasta weight alone", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    expect(parseFood("100g of uncooked pasta").items[0].grams).toBeCloseTo(100, 1);
+    expect(parseFood("100g dry pasta").items[0].grams).toBeCloseTo(100, 1);
+  });
+
+  test("corrects meat and pasta in opposite directions from the same word", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    // "cooked" is a no-op on meat (already the stored basis) and a big cut on pasta.
+    expect(parseFood("200g cooked chicken thighs").items[0].grams).toBeCloseTo(200, 1);
+    expect(parseFood("200g cooked pasta").items[0].grams).toBeCloseTo(88.9, 1);
+    // "uncooked" is the reverse pair.
+    expect(parseFood("200g uncooked chicken thighs").items[0].grams).toBeCloseTo(144, 1);
+    expect(parseFood("200g uncooked pasta").items[0].grams).toBeCloseTo(200, 1);
+  });
+});
+
 describe("digits count as counts", () => {
   test("multiplies a numeral by the portion, as the number words already did", () => {
     expect(typeof parseFood).toBe("function");
@@ -155,7 +188,44 @@ describe("a weight in brackets is still a weight", () => {
   });
 });
 
+describe("a bracketed weight before the food", () => {
+  test("reads '3 uncooked (392g) chicken thighs' as the stated raw weight", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const result = parseFood("I just ate 3 uncooked (392g) chicken thighs");
+
+    expect(result.items[0].grams).toBeCloseTo(282.2, 1);
+    expect(result.unknown).toHaveLength(0);
+  });
+});
+
+describe("a weight belongs to its own food", () => {
+  test("does not take the next clause's weight across a comma", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const result = parseFood("chicken thighs, 100g pasta");
+    const chicken = result.items.find((item) => item.id === "chicken-thigh");
+
+    // The trap: scanning forward past the comma made the chicken 100g — the pasta's weight.
+    expect(chicken?.grams).toBeCloseTo(64, 1);
+    expect(chicken?.assumed).toBe(true);
+    expect(result.items.find((item) => item.id === "pasta")?.grams).toBeCloseTo(100, 1);
+  });
+});
+
 describe("spoons are a quantity", () => {
+  test("reads a spoon measure given after the food in brackets", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const result = parseFood("some pesto (2 teaspoons)");
+
+    expect(result.items[0].grams).toBeCloseTo(10, 1);
+    expect(result.items[0].assumed).toBeUndefined();
+  });
+
   test("prices teaspoons of pesto instead of defaulting to 100g", () => {
     expect(typeof parseFood).toBe("function");
     if (!parseFood) return;
@@ -196,6 +266,36 @@ describe("an unstated quantity is a serving, not 100g", () => {
     expect(parseFood("30g pesto").items[0].assumed).toBeUndefined();
     expect(parseFood("2 tsp pesto").items[0].assumed).toBeUndefined();
     expect(parseFood("three chicken thighs").items[0].assumed).toBeUndefined();
+  });
+});
+
+describe("the second sentence Joe typed, with the weight and the spoons in brackets", () => {
+  const line = "I just ate 3 uncooked (392g) chicken thighs, 100g of uncooked pasta and some pesto (2 teaspoons)";
+
+  test("reads all three quantities", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const result = parseFood(line);
+
+    expect(result.items.map((item) => item.id)).toEqual(["chicken-thigh", "pasta", "pesto"]);
+    expect(result.items[0].grams).toBeCloseTo(282.2, 1);
+    expect(result.items[1].grams).toBeCloseTo(100, 1);
+    expect(result.items[2].grams).toBeCloseTo(10, 1);
+    expect(result.items.some((item) => item.assumed)).toBe(false);
+    expect(result.unknown).toHaveLength(0);
+  });
+
+  test("totals the same as the same meal written without brackets", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const bracketed = parseFood(line).items;
+    const plain = parseFood("392g raw chicken thighs, 100g pasta and 10g pesto").items;
+    const kcal = (items: ParseResult["items"]) => items.reduce((sum, item) => sum + item.calories, 0);
+
+    expect(kcal(bracketed)).toBeCloseTo(kcal(plain), 0);
+    expect(kcal(bracketed)).toBeCloseTo(870.3, 0);
   });
 });
 

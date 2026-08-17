@@ -46,12 +46,12 @@ describe("priceMeal", () => {
   });
 
   test("converts a raw weighing rather than pricing it as cooked", () => {
-    const raw = priceMeal([{ food: "chicken thighs", grams: 428, raw: true }], AFTER_LUNCH);
+    const raw = priceMeal([{ food: "chicken thighs", grams: 428, weighedAs: "uncooked" }], AFTER_LUNCH);
     const cooked = priceMeal([{ food: "chicken thighs", grams: 428 }], AFTER_LUNCH);
 
     expect(raw.total.calories).toBeLessThan(cooked.total.calories);
     expect(raw.total.calories).toBeCloseTo(517.7, 0);
-    expect(raw.items[0].fromRawGrams).toBe(428);
+    expect(raw.items[0].weighedGrams).toBe(428);
   });
 
   test("counts portions itself so the caller never multiplies", () => {
@@ -64,9 +64,9 @@ describe("priceMeal", () => {
     expect(counted.total.protein).toBeCloseTo(47.6, 1);
   });
 
-  test("ignores a raw flag on a counted portion, which is already cooked-basis", () => {
+  test("ignores a weighed-state on a counted portion, which is already on the stored basis", () => {
     const plain = priceMeal([{ food: "chicken thighs", portions: 3 }], AFTER_LUNCH);
-    const flagged = priceMeal([{ food: "chicken thighs", portions: 3, raw: true }], AFTER_LUNCH);
+    const flagged = priceMeal([{ food: "chicken thighs", portions: 3, weighedAs: "uncooked" }], AFTER_LUNCH);
 
     // Converting a cooked-basis portion as if it were raw would discount the weight twice.
     expect(flagged.items[0].grams).toBeCloseTo(plain.items[0].grams, 1);

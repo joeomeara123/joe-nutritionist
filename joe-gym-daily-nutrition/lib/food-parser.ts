@@ -1,7 +1,11 @@
 export type Macros = { calories: number; protein: number; carbs: number; fat: number; fibre: number };
 /**
- * `rawYield` is the cooked-to-raw weight ratio. Foods stored on a cooked basis need it so a
- * raw weighing (how Joe actually weighs meat) converts instead of being priced as cooked.
+ * Cooking changes a food's mass, so a weight only means something alongside the state it was
+ * weighed in. `weighedAs` says which state the stored macros describe and `cookedRatio` is
+ * always cooked mass ÷ uncooked mass — meat loses water (chicken 0.72), pasta gains it (2.25).
+ *
+ * Both directions matter, and they are not symmetric: 392g of uncooked chicken is *less* food
+ * than 392g cooked, while 225g of cooked pasta is *less* food than 225g dry.
  */
 /**
  * Where a food's numbers came from. Present means the macros were read off the Sainsbury's
@@ -13,9 +17,20 @@ export type Macros = { calories: number; protein: number; carbs: number; fat: nu
  * quietly fill one in from a similar product.
  */
 export type FoodSource = { product: string; url: string; basis: string };
-export type Food = Macros & { id: string; name: string; aliases: string[]; basis: "100g" | "portion"; portionGrams?: number; portionLabel?: string; rawYield?: number; source?: FoodSource };
+export type CookState = "cooked" | "uncooked";
+export type Food = Macros & { id: string; name: string; aliases: string[]; basis: "100g" | "portion"; portionGrams?: number; portionLabel?: string; weighedAs?: CookState; cookedRatio?: number; source?: FoodSource };
+
+/**
+ * Convert a weight Joe took in one state into the state the food's macros are stored in.
+ * Returns the weight unchanged when he did not say, or when he weighed it the same way the
+ * label did — guessing a state is how a plate silently doubles.
+ */
+export function toStoredGrams(food: Food, grams: number, weighedAs?: CookState): number {
+  if (!weighedAs || !food.weighedAs || !food.cookedRatio || weighedAs === food.weighedAs) return grams;
+  return food.weighedAs === "cooked" ? grams * food.cookedRatio : grams / food.cookedRatio;
+}
 /** `assumed` marks a quantity the parser supplied because Joe did not state one. */
-export type ParsedFood = Macros & { id: string; name: string; grams: number; display: string; fromRawGrams?: number; assumed?: boolean };
+export type ParsedFood = Macros & { id: string; name: string; grams: number; display: string; weighedGrams?: number; weighedAs?: CookState; assumed?: boolean };
 
 const sainsburys = (product: string, slug: string, basis: string): FoodSource => ({
   product,
@@ -36,18 +51,18 @@ const sainsburys = (product: string, slug: string, basis: string): FoodSource =>
  * sells the product but publishes no nutrition table for it. They are listed in README.md.
  */
 export const FOODS: Food[] = [
-  { id: "chicken-thigh", name: "Cooked chicken thighs", aliases: ["chicken thighs", "chicken thigh", "cooked chicken", "chicken"], basis: "100g", portionGrams: 64, portionLabel: "thigh", rawYield: 0.72, calories: 168, protein: 24.8, carbs: 0, fat: 7.6, fibre: 0,
+  { id: "chicken-thigh", name: "Cooked chicken thighs", aliases: ["chicken thighs", "chicken thigh", "cooked chicken", "chicken"], basis: "100g", portionGrams: 64, portionLabel: "thigh", weighedAs: "cooked", cookedRatio: 0.72, calories: 168, protein: 24.8, carbs: 0, fat: 7.6, fibre: 0,
     source: sainsburys("Sainsbury's 640g British Fresh Skinless & Boneless Chicken Thigh Fillets", "sainsburys-640g-british-fresh-skinless-boneless-chicken-thigh-fillets", "per 100g, cooked as per instructions") },
-  { id: "mince", name: "Cooked 5% beef mince", aliases: ["5% mince", "five percent mince", "beef mince", "mince meat", "mince"], basis: "100g", rawYield: 0.7, calories: 167, protein: 31, carbs: 0, fat: 4.7, fibre: 0,
+  { id: "mince", name: "Cooked 5% beef mince", aliases: ["5% mince", "five percent mince", "beef mince", "mince meat", "mince"], basis: "100g", weighedAs: "cooked", cookedRatio: 0.7, calories: 167, protein: 31, carbs: 0, fat: 4.7, fibre: 0,
     source: sainsburys("Sainsbury's Organic British Beef Mince 5% Fat 500g", "sainsburys-organic-british-beef-mince-5-fat-500g", "per 100g; the label omits the basis, but 31g protein is a cooked figure") },
-  { id: "steak", name: "Cooked sirloin steak", aliases: ["sirloin steak", "steak"], basis: "100g", rawYield: 0.75, calories: 189, protein: 27.7, carbs: 0, fat: 8.7, fibre: 0,
+  { id: "steak", name: "Cooked sirloin steak", aliases: ["sirloin steak", "steak"], basis: "100g", weighedAs: "cooked", cookedRatio: 0.75, calories: 189, protein: 27.7, carbs: 0, fat: 8.7, fibre: 0,
     source: sainsburys("Sainsbury's 30 Days Matured British Beef Thick Cut Sirloin Steak, Taste the Difference 400g", "sainsburys-30-days-matured-british-beef-thick-cut-sirloin-steak-taste-the-difference-400g", "per 100g, cooked as per instructions") },
-  { id: "salmon", name: "Cooked salmon", aliases: ["salmon fillets", "salmon fillet", "salmon"], basis: "100g", rawYield: 0.8, calories: 219, protein: 28.4, carbs: 0, fat: 11.4, fibre: 0,
+  { id: "salmon", name: "Cooked salmon", aliases: ["salmon fillets", "salmon fillet", "salmon"], basis: "100g", weighedAs: "cooked", cookedRatio: 0.8, calories: 219, protein: 28.4, carbs: 0, fat: 11.4, fibre: 0,
     source: sainsburys("Sainsbury's 2 Skinless Scottish Salmon Fillets 220g", "sainsburys-2-skinless-scottish-salmon-fillets-220g", "per 100g, pan fried") },
   // Veetee's Heat & Eat pots are stocked but carry no nutrition table on the product page.
   { id: "sticky-rice", name: "Veetee sticky rice pot", aliases: ["veetee sticky rice", "vt sticky rice", "sticky rice pot", "sticky rice", "veetee cooked rice", "vt cooked rice", "veetee rice pot", "vt rice pot", "veetee rice", "vt rice"], basis: "portion", portionGrams: 130, portionLabel: "pot", calories: 198, protein: 3, carbs: 41.2, fat: 2.3, fibre: 0 },
   { id: "jasmine-rice", name: "Veetee jasmine rice pot", aliases: ["veetee jasmine rice", "vt jasmine rice", "jasmine rice pot", "jasmine rice"], basis: "portion", portionGrams: 140, portionLabel: "pot", calories: 202, protein: 4.1, carbs: 40.7, fat: 2.1, fibre: 1.7 },
-  { id: "pasta", name: "Dry fusilli pasta", aliases: ["fusilli pasta", "dry pasta", "pasta"], basis: "100g", calories: 351, protein: 14, carbs: 69, fat: 1.5, fibre: 2.9,
+  { id: "pasta", name: "Dry fusilli pasta", aliases: ["fusilli pasta", "dry pasta", "pasta"], basis: "100g", weighedAs: "uncooked", cookedRatio: 2.25, calories: 351, protein: 14, carbs: 69, fat: 1.5, fibre: 2.9,
     source: sainsburys("De Cecco Fusilli Pasta 500g", "de-cecco-fusilli-pasta-500g", "per 100g dry — Sainsbury's own fusilli publishes a cooked table, which is not comparable") },
   { id: "broccoli", name: "Broccoli", aliases: ["broccoli"], basis: "100g", calories: 35, protein: 3.3, carbs: 2.8, fat: 0.5, fibre: 2.8,
     source: sainsburys("Sainsbury's Broccoli Florets 900g", "sainsburys-broccoli-florets-900g", "per 100g, cooked as per instructions") },
@@ -89,8 +104,11 @@ const COUNT = "\\d+(?:\\.\\d+)?|a|an|one|two|three|four";
 const countOf = (token: string) => (token in numberWords ? numberWords[token] : Number(token));
 
 /** "cooked" is a prefix of "uncooked", so the longer word has to be tried first. */
-const BASIS = "uncooked|cooked|raw";
-const isRaw = (basis?: string) => basis === "raw" || basis === "uncooked";
+const BASIS = "uncooked|cooked|raw|dry";
+const cookStateOf = (word?: string): CookState | undefined => {
+  if (word === "raw" || word === "uncooked" || word === "dry") return "uncooked";
+  return word === "cooked" ? "cooked" : undefined;
+};
 
 const GENERIC_TBSP_GRAMS = 15;
 
@@ -126,7 +144,7 @@ export function scaled(food: Food, grams: number): ParsedFood {
 // Words that carry no food identity, so a leftover fragment made only of these is not an
 // unrecognised food — it is the grammar around one we already matched.
 const FILLER =
-  /\b(a|an|one|two|three|four|and|with|plus|of|some|the|my|then|also|served|side|sides|bowl|plate|portion|portions|cooked|uncooked|raw|dry|weighed|just|had|i|about|approx|approximately|g|grams?|grammes?|kg|ml|tbsps?|tsps?|tablespoons?|teaspoons?|spoon|spoons?|large|small|medium|extra|more|little|bit|pots?|tubs?|jars?|tins?|packs?|punnets?|knobs?|servings?|slices?|handfuls?|drizzle|splash|pinch)\b/g;
+  /\b(a|an|one|two|three|four|and|with|plus|of|some|the|my|then|also|served|side|sides|bowl|plate|portion|portions|cooked|uncooked|raw|dry|weighed|just|had|ate|eaten|eating|having|made|i|about|approx|approximately|g|grams?|grammes?|kg|ml|tbsps?|tsps?|tablespoons?|teaspoons?|spoon|spoons?|large|small|medium|extra|more|little|bit|pots?|tubs?|jars?|tins?|packs?|punnets?|knobs?|servings?|slices?|handfuls?|drizzle|splash|pinch)\b/g;
 
 /**
  * Matches an alias only on word boundaries. `includes()` would match "oil" inside "boiled"
@@ -139,7 +157,11 @@ function findAlias(haystack: string, alias: string): number {
 }
 
 export function parseFood(text: string): { items: ParsedFood[]; unknown: string[] } {
-  const normalised = text.toLowerCase().replace(/perinaise/g, "peri mayonnaise");
+  // Brackets become spaces rather than being stripped, so every index still lines up with the
+  // original text. Joe puts the real weight in brackets on either side of the food — "3
+  // uncooked (392g) chicken thighs", "some pesto (2 teaspoons)" — and once they are spaces
+  // those read exactly like the unbracketed forms, so one set of rules covers both.
+  const normalised = text.toLowerCase().replace(/perinaise/g, "peri mayonnaise").replace(/[()[\]]/g, " ");
   const found: ParsedFood[] = [];
   const occupied: Array<[number, number]> = [];
   // Everything the parser has accounted for gets blanked out; whatever survives is unknown.
@@ -167,31 +189,43 @@ export function parseFood(text: string): { items: ParsedFood[]; unknown: string[
     const after = normalised.slice(aliasEnd, aliasEnd + 32);
     // The basis word is captured, not just tolerated: a raw weighing of a cooked-basis food
     // has to be converted, and a missing alternative makes the whole gram match fail.
-    const gramsBefore = before.match(new RegExp(`(\\d+(?:\\.\\d+)?)\\s*(?:g|grams?|grammes?)\\s*(?:of\\s*)?(?:(${BASIS})\\s*)?$`));
-    // Joe writes the true weight in brackets after a count: "3 chicken thighs (392g uncooked)".
-    const gramsAfter = after.match(new RegExp(`^[\\s,(]*(\\d+(?:\\.\\d+)?)\\s*(?:g|grams?|grammes?)\\s*(?:(${BASIS})\\s*)?\\)?`));
-    const spoonBefore = before.match(new RegExp(`(?:^|\\s)(${COUNT})\\s*(tsps?|teaspoons?|tbsps?|tablespoons?)\\s*(?:of\\s*)?$`));
+    // The basis word sits on either side of the number: "392g raw" and "uncooked 392g" are the
+    // same claim, and before the brackets became spaces only the first form parsed.
+    const gramsBefore = before.match(new RegExp(`(?:(${BASIS})\\s+)?(\\d+(?:\\.\\d+)?)\\s*(?:g|grams?|grammes?)\\s*(?:of\\s*)?(?:(${BASIS})\\s*)?$`));
+    // Scanning forward must not cross a comma. "chicken thighs, 100g pasta" gave the chicken
+    // the pasta's weight — every number was real, and the meal was still wrong.
+    const gramsAfter = after.match(new RegExp(`^\\s*(\\d+(?:\\.\\d+)?)\\s*(?:g|grams?|grammes?)\\s*(?:(${BASIS})\\s*)?`));
+    const SPOON = "tsps?|teaspoons?|tbsps?|tablespoons?";
+    const spoonBefore = before.match(new RegExp(`(?:^|\\s)(${COUNT})\\s*(${SPOON})\\s*(?:of\\s*)?$`));
+    const spoonAfter = after.match(new RegExp(`^\\s*(${COUNT})\\s*(${SPOON})`));
     const wordBefore = before.match(new RegExp(`(?:^|\\s)(${COUNT})\\s*(?:(?:${BASIS})\\s*)?$`));
     const count = wordBefore ? countOf(wordBefore[1]) : 1;
 
     // Priority: a weight Joe stated, then a spoon measure, then a count of portions. Only if
     // he gave none of those does the parser supply a quantity — and it says so.
-    const stated = gramsBefore ?? gramsAfter;
+    // gramsBefore captures the basis on both sides of the number, so its number is group 2.
+    const stated = gramsBefore
+      ? { grams: Number(gramsBefore[2]), basis: gramsBefore[1] ?? gramsBefore[3] }
+      : gramsAfter
+        ? { grams: Number(gramsAfter[1]), basis: gramsAfter[2] }
+        : null;
+    const spoon = spoonBefore ?? spoonAfter;
+
     let grams: number;
     let assumed = false;
-    if (stated) grams = Number(stated[1]);
-    else if (spoonBefore) grams = countOf(spoonBefore[1]) * spoonGrams(food, spoonBefore[2]);
+    if (stated) grams = stated.grams;
+    else if (spoon) grams = countOf(spoon[1]) * spoonGrams(food, spoon[2]);
     else if (food.portionGrams) grams = food.portionGrams * count;
     else grams = 100;
-    if (!stated && !spoonBefore && !wordBefore) assumed = true;
+    if (!stated && !spoon && !wordBefore) assumed = true;
 
-    const weighedRaw = isRaw(stated?.[2]) || new RegExp(`\\b(raw|uncooked)\\s*$`).test(before);
-    const fromRawGrams = weighedRaw && food.rawYield ? grams : undefined;
-    if (fromRawGrams !== undefined) grams = grams * food.rawYield!;
+    const weighedAs = cookStateOf(stated?.basis) ?? cookStateOf(before.match(new RegExp(`\\b(${BASIS})\\s*$`))?.[1]);
+    const storedGrams = toStoredGrams(food, grams, weighedAs);
+    const converted = storedGrams !== grams;
 
     found.push({
-      ...scaled(food, grams),
-      ...(fromRawGrams === undefined ? {} : { fromRawGrams }),
+      ...scaled(food, storedGrams),
+      ...(converted ? { weighedGrams: grams, weighedAs } : {}),
       ...(assumed ? { assumed: true } : {}),
     });
     occupied.push([aliasIndex, aliasEnd]);
@@ -201,6 +235,7 @@ export function parseFood(text: string): { items: ParsedFood[]; unknown: string[
     if (spoonBefore) blank(aliasIndex - spoonBefore[0].length, aliasIndex);
     if (wordBefore) blank(aliasIndex - wordBefore[0].length, aliasIndex);
     if (gramsAfter) blank(aliasEnd, aliasEnd + gramsAfter[0].length);
+    if (spoonAfter) blank(aliasEnd, aliasEnd + spoonAfter[0].length);
   }
 
   const unknown = residue

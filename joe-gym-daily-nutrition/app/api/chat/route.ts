@@ -30,7 +30,7 @@ const ITEM_SCHEMA = {
     food: { type: "string", description: "Food name as Joe says it, e.g. 'chicken thighs', 'sticky rice', 'olive oil'." },
     grams: { type: "number", description: "Weight in grams, when Joe states a weight. Do not compute this from a count — use `portions` instead." },
     portions: { type: "number", description: "Number of whole items when Joe counts rather than weighs: 'three chicken thighs' is portions: 3. Never multiply a count by a portion size yourself; pass the count here and the tool does it." },
-    raw: { type: "boolean", description: "Only meaningful alongside `grams`. True if Joe weighed it raw; meats are stored on a cooked basis so the tool converts. A counted portion is already cooked-basis and ignores this." },
+    weighedAs: { type: "string", enum: ["cooked", "uncooked"], description: "Only meaningful alongside `grams`: the state Joe weighed it in. Pass it whenever he says, in either direction — meat is stored cooked and pasta is stored dry, so 'uncooked chicken' and 'cooked pasta' both need converting, opposite ways. Omit it if he did not say. A counted portion is already on the stored basis and ignores this." },
   },
   required: ["food"],
   additionalProperties: false,
@@ -41,7 +41,7 @@ function foodCatalogue() {
     const basis = food.basis === "portion" ? `per ${food.portionGrams}g ${food.portionLabel}` : "per 100g";
     // A 100g-basis food can still have a serving size; the model needs it to use `portions`.
     const serving = food.basis === "100g" && food.portionGrams ? `, 1 ${food.portionLabel} = ${food.portionGrams}g` : "";
-    const raw = food.rawYield ? `, cooked basis (raw x${food.rawYield})` : "";
+    const raw = food.weighedAs && food.cookedRatio ? `, weighed ${food.weighedAs} (cooked = uncooked x${food.cookedRatio})` : "";
     // Flag the handful of foods whose numbers are estimates rather than label figures, so the
     // chat can say so instead of quoting them with the same confidence as the rest.
     const estimate = food.source ? "" : " [ESTIMATE, not from a label]";
@@ -71,9 +71,9 @@ When he names a craving ("I fancy pasta"), call \`suggest_meals\` with it, then 
 **Answer first, refine after.** He is cooking, not filling in a form — a question costs him more than a slightly-off assumption. Only ask something back when no assumption is possible at all, and never ask for a number you could have taken from the food list.
 
 How to express what he is cooking:
-- He **counts** items ("three chicken thighs", "a bagel") — pass \`portions: 3\`. Do not work out the gram weight yourself; multiplying a count by a portion size is arithmetic, and arithmetic is the tool's job. Leave \`raw\` unset: portion sizes are already on the food's own basis, which for meat is cooked.
-- He gives a **weight** without saying which ("428g chicken thighs") — pass \`grams\` with \`raw: true\`. He weighs meat straight off the packet and the stored values are cooked, so the tool converts. Tell him: "taking that as raw".
-- He says raw or cooked explicitly — do exactly that.
+- He **counts** items ("three chicken thighs", "a bagel") — pass \`portions: 3\`. Do not work out the gram weight yourself; multiplying a count by a portion size is arithmetic, and arithmetic is the tool's job. Leave \`weighedAs\` unset: portion sizes are already on the food's own basis.
+- He says **raw, uncooked, dry or cooked** — pass that as \`weighedAs\` ("raw" and "dry" are both \`uncooked\`). This matters in both directions and they are not symmetric: meat is stored cooked, so uncooked chicken converts *down*; pasta is stored dry, so cooked pasta converts *down* too. Never do that conversion yourself.
+- He gives a **weight** without saying which ("428g chicken thighs") — pass \`grams\` with \`weighedAs: "uncooked"\`. He weighs things as they come out of the packet. Tell him you took it as uncooked so he can correct you.
 
 ## Formatting
 Plain prose. No markdown — no \`**bold**\`, no headings, no bullet lists. The app renders your reply as plain text, so asterisks show up as literal asterisks.

@@ -133,6 +133,9 @@ main { width:min(1180px,calc(100% - 40px)); margin:0 auto; padding:24px 0 56px; 
    spoonful never passes for a weighing. */
 .preview-foods span.assumed { border-color:#d8c48a; background:#fdf8ea; }
 .preview-foods em { display:block; margin-top:1px; color:#8a7434; font-size:9px; font-style:normal; }
+/* A weight converted between cooked and uncooked. Shown because the number on the chip is
+   deliberately not the number Joe typed, and that should not look like a mistake. */
+.preview-foods em.note { color:var(--muted); }
 .preview-totals { display:grid; grid-template-columns:repeat(3,auto); gap:4px 12px; color:var(--muted); font-size:9px; }
 .preview-totals strong { color:var(--ink); font-size:13px; }
 .preview-actions { display:flex; gap:6px; }

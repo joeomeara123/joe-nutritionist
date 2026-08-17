@@ -7,7 +7,7 @@
  * a model that estimates macros produces confident, slightly-wrong grams, which is worse than
  * no answer at all.
  */
-import { FOODS, parseFood, scaled, type Food, type Macros, type ParsedFood } from "./food-parser";
+import { FOODS, parseFood, scaled, toStoredGrams, type CookState, type Food, type Macros, type ParsedFood } from "./food-parser";
 import { DAILY_TARGETS, recommendDay, scoreProjection, type Suggestion } from "./recommendations";
 
 export type DayState = { consumed: Macros; mealCount: number; hour: number };
@@ -16,7 +16,7 @@ export type DayState = { consumed: Macros; mealCount: number; hour: number };
  * not `grams: 192` — asking a language model to do that multiplication is asking it to do
  * arithmetic, which is the one thing this layer exists to prevent.
  */
-export type MealItem = { food: string; grams?: number; portions?: number; raw?: boolean };
+export type MealItem = { food: string; grams?: number; portions?: number; weighedAs?: CookState };
 
 const ZERO: Macros = { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0 };
 
@@ -85,13 +85,13 @@ function resolveItem(item: MealItem): { parsed: ParsedFood; food: Food } | { unk
   const food = lookupFood(item.food);
   if (!food) return { unknown: item.food };
 
-  let grams = item.grams ?? (item.portions !== undefined && food.portionGrams ? item.portions * food.portionGrams : undefined) ?? food.portionGrams ?? 100;
-  // A counted portion is already on the food's own basis (cooked, for meat), so a raw
-  // conversion on top of it would discount the weight twice.
-  const fromRawGrams = item.raw && item.grams !== undefined && food.rawYield ? grams : undefined;
-  if (fromRawGrams !== undefined) grams = grams * food.rawYield!;
+  const grams = item.grams ?? (item.portions !== undefined && food.portionGrams ? item.portions * food.portionGrams : undefined) ?? food.portionGrams ?? 100;
+  // A counted portion is already on the food's own basis, so converting it as if it had been
+  // weighed in the other state would apply the ratio twice.
+  const weighedAs = item.grams !== undefined ? item.weighedAs : undefined;
+  const storedGrams = toStoredGrams(food, grams, weighedAs);
 
-  const parsed = { ...scaled(food, grams), ...(fromRawGrams === undefined ? {} : { fromRawGrams }) };
+  const parsed = { ...scaled(food, storedGrams), ...(storedGrams === grams ? {} : { weighedGrams: grams, weighedAs }) };
   return { parsed, food };
 }
 
