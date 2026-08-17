@@ -26,8 +26,14 @@ Everything here is built around one fixed set of daily targets:
 
 ## The dashboard app
 
+**Live: https://joe-nutritionist.vercel.app** — Vercel project
+`joe-go-supernovas-projects/joe-nutritionist`, root directory `joe-gym-daily-nutrition/`.
+Deploy with `vercel deploy --prod --cwd joe-gym-daily-nutrition`.
+
 Stack: Next.js 16 (App Router) on Vercel, React 19, Tailwind 4. State lives entirely in
-`localStorage` under `joe-gym-diary-v1` — there is no database.
+`localStorage` under `joe-gym-diary-v1` — there is no database. That makes the diary
+**per-origin**: the phone and the laptop keep separate diaries, and moving one across takes
+the topbar Export/Import controls.
 
 Previously this ran as a Cloudflare Worker (`vinext`) hosted on OpenAI Sites. That was
 migrated off in August 2026 when the Codex credits ran out; the Worker entry point, the
@@ -69,8 +75,13 @@ the system prompt forbids quoting any number that did not come back from a tool 
 scores against what is *left* of the day, a mostly-empty day yields a big portion and a
 nearly-finished one yields a small one, with no separate rule needed.
 
-Set `ANTHROPIC_API_KEY` in the Vercel project. The route holds an API key, so keep Vercel
-deployment protection on — the in-process rate limit is a backstop, not the gate.
+`ANTHROPIC_API_KEY` is set on the Vercel project for **Production only** — add it to Preview
+too if branch deployments ever need the chat.
+
+**The production URL is currently public and unauthenticated.** `/api/chat` spends real
+Anthropic credit on every request, and the 20/minute limit in the route is per warm instance,
+so it is a runaway-client backstop rather than an access gate. Either turn on Vercel
+deployment protection or put a shared secret in front of the route before sharing the link.
 
 ## Working conventions
 
