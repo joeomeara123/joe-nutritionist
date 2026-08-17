@@ -36,3 +36,16 @@ test("keeps Joe's targets and current Veetee pot values exact", async () => {
   assert.equal(calorieSegments.reduce((sum, value) => sum + value, 0), 1800);
   assert.equal(percentageSegments.reduce((sum, value) => sum + value, 0), 100);
 });
+
+test("fills each macro sector independently against its own target", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(page, /consumed\.protein\s*\/\s*TARGETS\.protein/);
+  assert.match(page, /consumed\.carbs\s*\/\s*TARGETS\.carbs/);
+  assert.match(page, /consumed\.fat\s*\/\s*TARGETS\.fat/);
+  assert.match(page, /--protein-fill/);
+  assert.match(page, /--carbs-fill/);
+  assert.match(page, /--fat-fill/);
+  assert.match(styles, /repeating-conic-gradient/);
+  assert.match(styles, /\.spoke-protein\s*\{\s*transform:rotate\(-90deg\)/);
+});

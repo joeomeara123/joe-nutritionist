@@ -43,12 +43,16 @@ main { width:min(1180px,calc(100% - 40px)); margin:0 auto; padding:24px 0 56px; 
 .fibre-note strong { color:var(--ink); }
 
 .wheel-wrap { position:relative; min-height:410px; display:grid; place-items:center; }
-.nutrition-wheel { position:relative; width:min(390px,100%); aspect-ratio:1; border-radius:50%; display:grid; place-items:center; background:conic-gradient(from -90deg,var(--protein) 0 35.6%,var(--carbs) 35.6% 70%,var(--fat) 70% 100%); box-shadow:0 34px 80px #2b392518; animation:wheel-in .7s cubic-bezier(.2,.8,.2,1) both; }
-.nutrition-wheel:before { content:""; position:absolute; width:81.5%; aspect-ratio:1; border-radius:50%; background:var(--surface); }
-.eaten-ring { --eaten-progress:0deg; position:relative; z-index:1; width:71.3%; aspect-ratio:1; border-radius:50%; display:grid; place-items:center; background:conic-gradient(from -90deg,var(--ink) 0 var(--eaten-progress),#e2e5dd var(--eaten-progress)); }
-.eaten-ring.over { background:conic-gradient(from -90deg,var(--red) 0 360deg,#e2e5dd 0); }
-.eaten-ring:before { content:""; position:absolute; width:calc(100% - 18px); aspect-ratio:1; border-radius:50%; background:var(--surface); }
-.wheel-centre { position:relative; z-index:1; text-align:center; }
+.nutrition-wheel { --protein-fill:0deg; --carbs-fill:128.16deg; --fat-fill:252deg; position:relative; width:min(390px,100%); aspect-ratio:1; border-radius:50%; display:grid; place-items:center; filter:drop-shadow(0 34px 40px #2b392518); animation:wheel-in .7s cubic-bezier(.2,.8,.2,1) both; isolation:isolate; }
+.wheel-target,.wheel-progress,.wheel-hole { position:absolute; inset:0; border-radius:50%; }
+.wheel-target { z-index:0; background:repeating-conic-gradient(from -90deg,#aeb4aa 0deg 1.2deg,transparent 1.2deg 4.2deg); }
+.wheel-progress { z-index:1; background:conic-gradient(from -90deg,var(--protein) 0 var(--protein-fill),transparent var(--protein-fill) 128.16deg,var(--carbs) 128.16deg var(--carbs-fill),transparent var(--carbs-fill) 252deg,var(--fat) 252deg var(--fat-fill),transparent var(--fat-fill) 360deg); transition:background .45s cubic-bezier(.2,.8,.2,1); }
+.wheel-hole { z-index:2; inset:34px; background:var(--surface); box-shadow:inset 0 0 0 1px #d9ddd4; }
+.wheel-spoke { position:absolute; z-index:3; left:50%; top:50%; width:calc(50% - 8px); border-top:1px dashed #9da39a; transform-origin:left center; opacity:.78; }
+.spoke-protein { transform:rotate(-90deg); }
+.spoke-carbs { transform:rotate(38.16deg); }
+.spoke-fat { transform:rotate(162deg); }
+.wheel-centre { position:relative; z-index:4; min-width:156px; padding:22px 12px; border-radius:50%; background:var(--surface); text-align:center; box-shadow:0 0 0 12px color-mix(in srgb,var(--surface) 90%,transparent); }
 .wheel-centre strong { display:block; font-family:var(--font-geist-mono),monospace; font-size:62px; font-weight:680; line-height:.9; letter-spacing:-.085em; }
 .wheel-centre span { display:block; margin-top:8px; font-size:14px; font-weight:750; }
 .wheel-centre small { display:block; margin-top:11px; color:var(--muted); font-family:var(--font-geist-mono),monospace; font-size:10px; }

@@ -151,6 +151,16 @@ export default function Home() {
   const previewMacros = total(previewItems);
   const coach = coachMessage(consumed, previewItems.length ? previewMacros : undefined);
   const caloriePct = Math.min(100, Math.round((consumed.calories / TARGETS.calories) * 100));
+  const proteinEnd = 128.16;
+  const carbsEnd = 252;
+  const proteinFill = proteinEnd * Math.min(1, consumed.protein / TARGETS.protein);
+  const carbsFill = proteinEnd + (carbsEnd - proteinEnd) * Math.min(1, consumed.carbs / TARGETS.carbs);
+  const fatFill = carbsEnd + (360 - carbsEnd) * Math.min(1, consumed.fat / TARGETS.fat);
+  const wheelStyle = {
+    "--protein-fill": `${proteinFill}deg`,
+    "--carbs-fill": `${carbsFill}deg`,
+    "--fat-fill": `${fatFill}deg`,
+  } as React.CSSProperties;
 
   function previewEntry(event?: FormEvent) {
     event?.preventDefault();
@@ -230,10 +240,14 @@ export default function Home() {
           <p className="fibre-note"><span>+</span> Fibre stays separate: <strong>{TARGETS.fibre}g minimum</strong></p>
         </div>
         <div className="wheel-wrap">
-          <div className="nutrition-wheel" aria-label="Daily calories: 35.6 percent protein, 34.4 percent carbohydrates, and 30 percent fat">
-            <div className={`eaten-ring ${consumed.calories > TARGETS.calories ? "over" : ""}`} style={{ "--eaten-progress": `${caloriePct * 3.6}deg` } as React.CSSProperties}>
-              <div className="wheel-centre"><strong>{caloriePct}%</strong><span>eaten</span><small>{round(consumed.calories)} / 1,800 kcal</small></div>
-            </div>
+          <div className="nutrition-wheel" style={wheelStyle} aria-label={`Macro progress: ${round(consumed.protein, 1)} of 160 grams protein, ${round(consumed.carbs, 1)} of 155 grams carbohydrates, and ${round(consumed.fat, 1)} of 60 grams fat`}>
+            <div className="wheel-target" aria-hidden="true" />
+            <div className="wheel-progress" aria-hidden="true" />
+            <div className="wheel-hole" aria-hidden="true" />
+            <span className="wheel-spoke spoke-protein" aria-hidden="true" />
+            <span className="wheel-spoke spoke-carbs" aria-hidden="true" />
+            <span className="wheel-spoke spoke-fat" aria-hidden="true" />
+            <div className="wheel-centre"><strong>{caloriePct}%</strong><span>eaten</span><small>{round(consumed.calories)} / 1,800 kcal</small></div>
           </div>
           <div className="remaining-kcal"><strong>{Math.abs(round(TARGETS.calories - consumed.calories))}</strong><span>kcal {consumed.calories <= TARGETS.calories ? "left" : "over"}</span></div>
         </div>
