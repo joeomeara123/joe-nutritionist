@@ -127,36 +127,48 @@ describe("raw weights convert to the cooked basis instead of failing quietly", (
   });
 });
 
-describe("cooked and dry are opposite corrections", () => {
-  test("converts a cooked pasta weight back to the dry basis it is stored on", () => {
+describe("cooked and uncooked corrections run both ways", () => {
+  test("leaves a cooked pasta weight alone, since the label itself is cooked", () => {
     expect(typeof parseFood).toBe("function");
     if (!parseFood) return;
 
     const result = parseFood("225g of cooked pasta");
 
-    // Pasta is stored dry and Joe's own note gives the ratio: 100g dry makes 225g cooked.
-    expect(result.items[0].grams).toBeCloseTo(100, 1);
-    expect(result.items[0].calories).toBeCloseTo(351, 0);
+    expect(result.items[0].grams).toBeCloseTo(225, 1);
+    expect(result.items[0].calories).toBeCloseTo(369, 0);
   });
 
-  test("leaves a dry pasta weight alone", () => {
+  test("scales a dry pasta weight up to the cooked basis it is stored on", () => {
     expect(typeof parseFood).toBe("function");
     if (!parseFood) return;
 
-    expect(parseFood("100g of uncooked pasta").items[0].grams).toBeCloseTo(100, 1);
-    expect(parseFood("100g dry pasta").items[0].grams).toBeCloseTo(100, 1);
+    // Joe's own ratio: 100g dry makes 225g cooked.
+    expect(parseFood("100g of uncooked pasta").items[0].grams).toBeCloseTo(225, 1);
+    expect(parseFood("100g dry pasta").items[0].grams).toBeCloseTo(225, 1);
   });
 
   test("corrects meat and pasta in opposite directions from the same word", () => {
     expect(typeof parseFood).toBe("function");
     if (!parseFood) return;
 
-    // "cooked" is a no-op on meat (already the stored basis) and a big cut on pasta.
+    // Both are stored cooked, so "cooked" is a no-op on each.
     expect(parseFood("200g cooked chicken thighs").items[0].grams).toBeCloseTo(200, 1);
-    expect(parseFood("200g cooked pasta").items[0].grams).toBeCloseTo(88.9, 1);
-    // "uncooked" is the reverse pair.
+    expect(parseFood("200g cooked pasta").items[0].grams).toBeCloseTo(200, 1);
+    // "uncooked" shrinks the meat and grows the pasta.
     expect(parseFood("200g uncooked chicken thighs").items[0].grams).toBeCloseTo(144, 1);
-    expect(parseFood("200g uncooked pasta").items[0].grams).toBeCloseTo(200, 1);
+    expect(parseFood("200g uncooked pasta").items[0].grams).toBeCloseTo(450, 1);
+  });
+
+  test("takes an unqualified weight as uncooked, the way Joe weighs things", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    // He weighs out of the packet. Reading "100g pasta" as 100g cooked would log a third of
+    // what he is about to eat, so the default matters more than it looks.
+    const pasta = parseFood("100g pasta").items[0];
+    expect(pasta.grams).toBeCloseTo(225, 1);
+    expect(pasta.weighedGrams).toBe(100);
+    expect(pasta.weighedAs).toBe("uncooked");
   });
 });
 
@@ -211,7 +223,7 @@ describe("a weight belongs to its own food", () => {
     // The trap: scanning forward past the comma made the chicken 100g — the pasta's weight.
     expect(chicken?.grams).toBeCloseTo(64, 1);
     expect(chicken?.assumed).toBe("quantity");
-    expect(result.items.find((item) => item.id === "pasta")?.grams).toBeCloseTo(100, 1);
+    expect(result.items.find((item) => item.id === "pasta")?.grams).toBeCloseTo(225, 1);
   });
 });
 
@@ -233,7 +245,7 @@ describe("spoons are a quantity", () => {
     const result = parseFood("2 teaspoons of pesto");
 
     expect(result.items[0].grams).toBeCloseTo(10, 1);
-    expect(result.items[0].fat).toBeCloseTo(4.5, 1);
+    expect(result.items[0].fat).toBeCloseTo(2.8, 1);
   });
 
   test("uses the food's own tablespoon weight where it has one", () => {
@@ -281,7 +293,7 @@ describe("the second sentence Joe typed, with the weight and the spoons in brack
 
     expect(result.items.map((item) => item.id)).toEqual(["chicken-thigh", "pasta", "pesto"]);
     expect(result.items[0].grams).toBeCloseTo(282.2, 1);
-    expect(result.items[1].grams).toBeCloseTo(100, 1);
+    expect(result.items[1].grams).toBeCloseTo(225, 1);
     expect(result.items[2].grams).toBeCloseTo(10, 1);
     expect(result.items.some((item) => item.assumed)).toBe(false);
     expect(result.unknown).toHaveLength(0);
@@ -292,11 +304,11 @@ describe("the second sentence Joe typed, with the weight and the spoons in brack
     if (!parseFood) return;
 
     const bracketed = parseFood(line).items;
-    const plain = parseFood("392g raw chicken thighs, 100g pasta and 10g pesto").items;
+    const plain = parseFood("392g raw chicken thighs, 100g uncooked pasta and 10g pesto").items;
     const kcal = (items: ParseResult["items"]) => items.reduce((sum, item) => sum + item.calories, 0);
 
     expect(kcal(bracketed)).toBeCloseTo(kcal(plain), 0);
-    expect(kcal(bracketed)).toBeCloseTo(870.3, 0);
+    expect(kcal(bracketed)).toBeCloseTo(874.4, 0);
   });
 });
 
@@ -311,7 +323,7 @@ describe("the whole sentence Joe actually typed", () => {
 
     expect(result.items.map((item) => item.id)).toEqual(["chicken-thigh", "pasta", "pesto"]);
     expect(result.items[0].grams).toBeCloseTo(282.2, 1); // 392g raw, converted
-    expect(result.items[1].grams).toBeCloseTo(100, 1); // dry pasta is already the stored basis
+    expect(result.items[1].grams).toBeCloseTo(225, 1); // 100g dry becomes 225g cooked
     expect(result.items[2].grams).toBeCloseTo(10, 1); // 2 tsp
     expect(result.unknown).toHaveLength(0);
   });
@@ -324,10 +336,10 @@ describe("the whole sentence Joe actually typed", () => {
     const sum = (key: "calories" | "protein" | "fat" | "fibre") => items.reduce((total, item) => total + item[key], 0);
 
     // Was 922 kcal / 32.6g protein / 52.5g fat: one 64g thigh and 100g of pesto.
-    expect(sum("calories")).toBeCloseTo(870.3, 0);
-    expect(sum("protein")).toBeCloseTo(84.4, 1);
-    expect(sum("fat")).toBeCloseTo(27.5, 1);
-    expect(sum("fibre")).toBeCloseTo(3.1, 1);
+    expect(sum("calories")).toBeCloseTo(874.4, 0);
+    expect(sum("protein")).toBeCloseTo(82.8, 1);
+    expect(sum("fat")).toBeCloseTo(25.9, 1);
+    expect(sum("fibre")).toBeCloseTo(3.7, 1);
   });
 });
 

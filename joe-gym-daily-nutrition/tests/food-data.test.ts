@@ -38,11 +38,10 @@ describe("every food says where its numbers came from", () => {
     for (const food of FOODS) {
       if (food.cookedRatio === undefined) continue;
       expect(food.weighedAs).toBeDefined();
+      // The ratio is cooked mass / uncooked mass and says nothing about which state is stored:
+      // meat loses water (<1) and pasta gains it (>1), and both are stored cooked.
       expect(food.cookedRatio).toBeGreaterThan(0);
-      // Meat loses water and pasta gains it, so the ratio sits either side of 1 — but a food
-      // stored cooked can only lose, and one stored dry can only gain.
-      if (food.weighedAs === "cooked") expect(food.cookedRatio).toBeLessThan(1);
-      if (food.weighedAs === "uncooked") expect(food.cookedRatio).toBeGreaterThan(1);
+      expect(food.cookedRatio).toBeLessThan(5);
     }
   });
 });

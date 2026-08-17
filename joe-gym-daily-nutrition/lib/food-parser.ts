@@ -67,12 +67,12 @@ export const FOODS: Food[] = [
   // weight, and `portionVaries` makes the app say so instead of implying it was measured.
   { id: "chicken-thigh", name: "Cooked chicken thighs", aliases: ["chicken thighs", "chicken thigh", "cooked chicken", "chicken"], basis: "100g", portionGrams: 64, portionLabel: "thigh", portionVaries: true, weighedAs: "cooked", cookedRatio: 0.72, calories: 168, protein: 24.8, carbs: 0, fat: 7.6, fibre: 0,
     source: sainsburys("Sainsbury's 640g British Fresh Skinless & Boneless Chicken Thigh Fillets", "sainsburys-640g-british-fresh-skinless-boneless-chicken-thigh-fillets", "per 100g, cooked as per instructions") },
-  { id: "mince", name: "Cooked 5% beef mince", aliases: ["5% mince", "five percent mince", "beef mince", "mince meat", "mince"], basis: "100g", weighedAs: "cooked", cookedRatio: 0.7, calories: 167, protein: 31, carbs: 0, fat: 4.7, fibre: 0,
-    source: sainsburys("Sainsbury's Organic British Beef Mince 5% Fat 500g", "sainsburys-organic-british-beef-mince-5-fat-500g", "per 100g; the label omits the basis, but 31g protein is a cooked figure") },
+  { id: "mince", name: "Cooked 5% beef mince", aliases: ["5% mince", "five percent mince", "beef mince", "mince meat", "mince"], basis: "100g", weighedAs: "cooked", cookedRatio: 0.7, calories: 168, protein: 31, carbs: 0, fat: 4.7, fibre: 0,
+    source: sainsburys("Sainsbury's British or Irish Beef Mince 1kg", "sainsburys-british-or-irish-beef-mince-1kg", "per 100g; the label omits the basis, but 31g protein is a cooked figure") },
   { id: "steak", name: "Cooked sirloin steak", aliases: ["sirloin steak", "steak"], basis: "100g", weighedAs: "cooked", cookedRatio: 0.75, calories: 189, protein: 27.7, carbs: 0, fat: 8.7, fibre: 0,
-    source: sainsburys("Sainsbury's 30 Days Matured British Beef Thick Cut Sirloin Steak, Taste the Difference 400g", "sainsburys-30-days-matured-british-beef-thick-cut-sirloin-steak-taste-the-difference-400g", "per 100g, cooked as per instructions") },
-  { id: "salmon", name: "Cooked salmon", aliases: ["salmon fillets", "salmon fillet", "salmon"], basis: "100g", weighedAs: "cooked", cookedRatio: 0.8, calories: 219, protein: 28.4, carbs: 0, fat: 11.4, fibre: 0,
-    source: sainsburys("Sainsbury's 2 Skinless Scottish Salmon Fillets 220g", "sainsburys-2-skinless-scottish-salmon-fillets-220g", "per 100g, pan fried") },
+    source: sainsburys("Sainsbury's 30 Days Matured British Beef Sirloin Steak, Taste the Difference 225g", "sainsburys-30-days-matured-british-beef-sirloin-steak-taste-the-difference-225g", "per 100g, cooked as per instructions") },
+  { id: "salmon", name: "Cooked salmon", aliases: ["salmon fillets", "salmon fillet", "salmon"], basis: "100g", weighedAs: "cooked", cookedRatio: 0.8, calories: 247, protein: 24.1, carbs: 0, fat: 16.4, fibre: 0,
+    source: sainsburys("Sainsbury's Skin on ASC lightly Smoked Scottish Salmon Fillets, Taste the Difference x2 240g", "sainsburys-skin-on-asc-lightly-smoked-scottish-salmon-fillets-taste-the-difference-x2-240g", "per 100g, pan fried") },
   // Sainsbury's own listing for the Veetee pots carries no table, so these come from the
   // packaging as transcribed on Open Food Facts. Both agreed to the decimal with the figures
   // already in the app, which is the corroboration that makes a community source usable here.
@@ -80,21 +80,25 @@ export const FOODS: Food[] = [
     source: { product: "Veetee Heat & Eat Sticky Rice Pot", url: "https://uk-gd.openfoodfacts.org/product/5016805010255/sticky-rice-veetee", basis: "per 100g (152kcal 2.3P 31.7C 1.8F), scaled to the 130g pot the label names; fibre is not published" } },
   { id: "jasmine-rice", name: "Veetee jasmine rice pot", aliases: ["veetee jasmine rice", "vt jasmine rice", "jasmine rice pot", "jasmine rice"], basis: "portion", portionGrams: 140, portionLabel: "pot", calories: 202, protein: 4.1, carbs: 40.7, fat: 2.1, fibre: 1.7,
     source: { product: "Veetee Heat & Eat Thai Jasmine Rice Pot", url: "https://world.openfoodfacts.org/product/5016805010217/veetee-thai-jasmine-rice", basis: "per 100g (144kcal 2.9P 29.1C 1.5F 1.2fib), scaled to the 140g pot the label names" } },
-  { id: "pasta", name: "Dry fusilli pasta", aliases: ["fusilli pasta", "dry pasta", "pasta"], basis: "100g", weighedAs: "uncooked", cookedRatio: 2.25, calories: 351, protein: 14, carbs: 69, fat: 1.5, fibre: 2.9,
-    source: sainsburys("De Cecco Fusilli Pasta 500g", "de-cecco-fusilli-pasta-500g", "per 100g dry — Sainsbury's own fusilli publishes a cooked table, which is not comparable") },
+  // His bag publishes its table cooked, not dry, so that is what is stored. 100g dry scales up
+  // through cookedRatio to 225g cooked, the ratio Joe gave himself.
+  { id: "pasta", name: "Cooked fusilli pasta", aliases: ["fusilli pasta", "dry pasta", "pasta"], basis: "100g", weighedAs: "cooked", cookedRatio: 2.25, calories: 164, protein: 5.5, carbs: 33.2, fat: 0.7, fibre: 1.5,
+    source: sainsburys("Sainsbury's Fusilli Pasta 1kg", "sainsburys-fusilli-pasta-1kg", "per 100g cooked") },
   { id: "broccoli", name: "Broccoli", aliases: ["broccoli"], basis: "100g", calories: 35, protein: 3.3, carbs: 2.8, fat: 0.5, fibre: 2.8,
     source: sainsburys("Sainsbury's Broccoli Florets 900g", "sainsburys-broccoli-florets-900g", "per 100g, cooked as per instructions") },
   { id: "peppers", name: "Sweet peppers", aliases: ["sweet peppers", "bell peppers", "pepper", "peppers"], basis: "100g", calories: 23, protein: 0.8, carbs: 4.1, fat: 0.5, fibre: 1,
     source: sainsburys("Sainsbury's Sweet Peppers (Colours may vary) x3", "sainsburys-sweet-peppers-colours-may-vary-x3", "per 100g, raw") },
+  { id: "spring-onions", name: "Spring onions", aliases: ["spring onions", "spring onion"], basis: "100g", calories: 27, protein: 2, carbs: 2.9, fat: 0.5, fibre: 1.5,
+    source: sainsburys("Sainsbury's Spring Onions Bunch 100g", "sainsburys-spring-onions-bunch-100g", "per 100g") },
   { id: "avocado", name: "Avocado", aliases: ["avocado"], basis: "100g", calories: 197, protein: 1.9, carbs: 1.9, fat: 19.5, fibre: 3.4,
-    source: sainsburys("Sainsbury's Medium Avocado", "sainsburys-medium-avocado", "per 100g") },
+    source: sainsburys("Sainsbury's Medium Ripe & Ready Avocados, SO Organic x2", "sainsburys-medium-ripe-ready-avocados-so-organic-x2", "per 100g") },
   // Sainsbury's own Greek Feta shows no table; Attis is the stocked block that publishes one.
   { id: "feta", name: "Feta", aliases: ["feta cheese", "feta"], basis: "100g", calories: 276, protein: 16.5, carbs: 0.7, fat: 23, fibre: 0,
-    source: sainsburys("Attis Greek Feta Cheese 200g", "attis-greek-feta-cheese-200g", "per 100g; fibre is not published") },
+    source: sainsburys("Sainsbury's Greek Feta Cheese 200g", "sainsburys-greek-feta-cheese-200g", "per 100g") },
   // Condiments carry a portion size so an unquantified mention costs a spoonful rather than
   // the 100g fallback — 100g of pesto is 451 kcal, which quietly wrecks a day's numbers.
-  { id: "pesto", name: "Green pesto", aliases: ["green pesto", "pesto"], basis: "100g", portionGrams: 15, portionLabel: "tbsp", calories: 451, protein: 4.3, carbs: 6.4, fat: 45, fibre: 1.8,
-    source: sainsburys("Sacla Organic Basil Pesto 190g", "sacla-organic-basil-pesto-190g", "per 100g") },
+  { id: "pesto", name: "Green pesto", aliases: ["green pesto", "pesto"], basis: "100g", portionGrams: 15, portionLabel: "tbsp", calories: 312, protein: 4.3, carbs: 8.4, fat: 28.4, fibre: 3,
+    source: sainsburys("Sainsbury's Green Pesto 190g", "sainsburys-green-pesto-190g", "per 100g; the jar's own serving is 1/4 jar (47.5g), but a tbsp is the useful unit here") },
   // Straight off McCain's own site, which publishes frozen and oven-baked columns side by side.
   // Some retailer listings show 257kcal; the manufacturer's 270 is the one to trust, and it is
   // the oven-baked column that matches how Joe eats them.
@@ -102,6 +106,12 @@ export const FOODS: Food[] = [
     source: { product: "McCain Gastro Triple Cooked Chips", url: "https://www.mccain.co.uk/gastro-triple-cooked-chips/", basis: "per 100g oven baked; frozen is 166kcal 1.7P 21.8C 7.7F 1.2fib, hence the 0.615 cooked ratio" } },
   { id: "nandos", name: "Nando's PERi-PERi sauce", aliases: ["nando's hot sauce", "nandos hot sauce", "nando sauce", "nandos sauce", "peri-peri sauce", "peri peri sauce"], basis: "portion", portionGrams: 20, portionLabel: "serving", calories: 9.8, protein: 0.1, carbs: 0.3, fat: 0.8, fibre: 0,
     source: sainsburys("Nando's Peri Peri Sauce Medium 125g", "nando-s-peri-peri-sauce-medium-125g", "per 100g (49kcal 0.6P 1.4C 4.2F), scaled to the 20g serving; fibre is not published") },
+  // Not a packaged product, so the source is a reference table rather than a label. Black
+  // coffee is close enough to nothing that the point is being able to log it at all.
+  { id: "coffee", name: "Black coffee", aliases: ["black coffee", "americano", "espresso", "coffee"], basis: "portion", portionGrams: 240, portionLabel: "mug", calories: 2.4, protein: 0.3, carbs: 0, fat: 0, fibre: 0,
+    source: { product: "Brewed coffee (USDA food code 92101000)", url: "https://www.nutritionvalue.org/Coffee%2C_brewed_92101000_nutritional_value.html", basis: "per 100g (1kcal 0.13P), scaled to a 240ml mug" } },
+  { id: "kefir", name: "Strawberry kefir", aliases: ["strawberry kefir", "activia kefir", "kefir"], basis: "portion", portionGrams: 280, portionLabel: "bottle", calories: 201.6, protein: 8.7, carbs: 22.1, fat: 8.7, fibre: 0,
+    source: sainsburys("Activia 280g Strawberry Kefir", "activia-280g-strawberry-kefir", "per 100g (72kcal 3.1P 7.9C 3.1F), scaled to the 280g bottle; fibre is not published") },
   { id: "protein-yogurt", name: "High-protein yoghurt", aliases: ["high protein yoghurt", "high protein yogurt", "protein yoghurt", "protein yogurt"], basis: "100g", calories: 72, protein: 10, carbs: 6.6, fat: 0.2, fibre: 0,
     source: sainsburys("Arla Protein Strawberry Yogurt 200g", "arla-protein-strawberry-yogurt-200g", "per 100g; fibre is not published") },
   { id: "protein-bagel", name: "Protein bagel", aliases: ["protein boost bagel", "protein bagel", "bagel"], basis: "portion", portionGrams: 68, portionLabel: "bagel", calories: 202, protein: 10.6, carbs: 26.5, fat: 5, fibre: 4.4,
@@ -251,7 +261,12 @@ export function parseFood(text: string): { items: ParsedFood[]; unknown: string[
     const counted = Boolean(wordBefore) || food.basis === "portion";
     if (!stated && !spoon) assumed = counted ? (food.portionVaries ? "portionSize" : undefined) : "quantity";
 
-    const weighedAs = cookStateOf(stated?.basis) ?? cookStateOf(before.match(new RegExp(`\\b(${BASIS})\\s*$`))?.[1]);
+    // Joe weighs things as they come out of the packet or the bag, so a weight he gives without
+    // saying which is an uncooked one. This has to be a default rather than a no-op: his pasta
+    // is stored on a cooked basis, and reading "100g pasta" as 100g cooked would log a third of
+    // what he is about to eat. The conversion shows on the chip, so a wrong guess is visible.
+    const explicit = cookStateOf(stated?.basis) ?? cookStateOf(before.match(new RegExp(`\\b(${BASIS})\\s*$`))?.[1]);
+    const weighedAs = explicit ?? (stated && food.cookedRatio ? "uncooked" : undefined);
     const storedGrams = toStoredGrams(food, grams, weighedAs);
     const converted = storedGrams !== grams;
 

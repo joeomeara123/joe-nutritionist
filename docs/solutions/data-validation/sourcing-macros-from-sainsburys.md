@@ -113,3 +113,31 @@ empty list instead.
 The lesson on top of the previous one: **"unavailable" was really "unavailable from the one
 place I looked."** A single retailer's API is not the world, and the manufacturer publishes the
 label the retailer is only paraphrasing.
+
+## Follow-up 3: the receipt (2026-08-17)
+
+Joe sent his actual Sainsbury's order (1330068890). It resolved every remaining guess, and
+showed that matching a food by name plus macro-distance still picks the wrong product:
+
+| Food | I had guessed | He actually buys | Effect |
+|---|---|---|---|
+| Pesto | Sacla Organic Basil, 451 kcal | **Sainsbury's Green Pesto 190g, 312 kcal** | 31% over on every pesto meal |
+| Salmon | Skinless fillets, 219 kcal | **Skin-on lightly smoked TTD, 247 kcal** | back to his original figure |
+| Mince | Organic 5% 500g, 167 kcal | **British or Irish Beef Mince 1kg, 168 kcal** | back to his original figure |
+| Pasta | De Cecco, 351 kcal per 100g **dry** | **Sainsbury's Fusilli 1kg, 164 kcal per 100g cooked** | different basis entirely |
+| Feta | Attis | Sainsbury's Greek Feta | same numbers |
+
+Two of those — salmon and mince — mean **his original hand-entered values were right and my
+re-sourcing had made them worse.** Macro-distance matching is a good tie-breaker among
+candidates, but it cannot tell a lightly smoked fillet from a plain one; only the receipt can.
+
+The pasta switch had a consequence worth noting: his bag publishes a *cooked* table, so an
+unqualified "100g pasta" would have logged 100g cooked — a third of what he means when he
+weighs out of the bag. An unqualified weight is now read as uncooked for any food with a cook
+ratio, matching what the chat already assumed, and the conversion is shown on the chip.
+
+Also added from the receipt: spring onions, Activia strawberry kefir. And black coffee, which
+Joe found by typing it in — not a packaged product, so it is sourced from the USDA reference
+table instead of a label.
+
+**Ask for the receipt first.** Two rounds of clever inference were beaten by the actual list.
