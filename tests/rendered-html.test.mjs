@@ -20,10 +20,11 @@ test("renders Joe's nutrition dashboard shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
-test("publishes Joe's gym favicon instead of the generic site icon", async () => {
+test("puts Joe's gym favicon inside the document head", async () => {
   const response = await render();
   const html = await response.text();
-  assert.match(html, /rel="(?:shortcut )?icon"[^>]+href="\/joe-gym-icon\.svg"/i);
+  const head = html.match(/<head>([\s\S]*?)<\/head>/i)?.[1] || "";
+  assert.match(head, /rel="icon"[^>]+href="\/joe-gym-icon\.svg\?v=3"/i);
 });
 
 test("keeps Joe's targets and current Veetee pot values exact", async () => {

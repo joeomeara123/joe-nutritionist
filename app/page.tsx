@@ -70,6 +70,7 @@ export default function Home() {
   const [parseError, setParseError] = useState("");
   const [listening, setListening] = useState(false);
   const [mealName, setMealName] = useState("Lunch");
+  const [recommendationSelection, setRecommendationSelection] = useState({ key: "", index: 0 });
   const recognitionRef = useRef<{ start: () => void; stop: () => void } | null>(null);
 
   useEffect(() => {
@@ -92,6 +93,9 @@ export default function Home() {
   const previewMacros = total(previewItems);
   const coach = coachMessage(consumed, previewItems.length ? previewMacros : undefined);
   const recommendation = recommendDay(consumed, properMealCount, new Date().getHours());
+  const recommendationKey = `${selectedDate}:${meals.length}:${consumed.calories}:${consumed.protein}:${consumed.carbs}:${consumed.fat}:${consumed.fibre}`;
+  const activeChoiceIndex = recommendationSelection.key === recommendationKey ? recommendationSelection.index % recommendation.choices.length : 0;
+  const activeRecommendation = recommendation.choices[activeChoiceIndex] || recommendation;
   const caloriePct = Math.min(100, Math.round((consumed.calories / TARGETS.calories) * 100));
   const proteinEnd = 128.16;
   const carbsEnd = 252;
@@ -144,6 +148,10 @@ export default function Home() {
     setParseError("");
     setMealName(suggestion.kind === "snack" ? "Snack" : properMealCount ? "Dinner" : "Lunch");
     requestAnimationFrame(() => document.getElementById("meal-entry")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }
+
+  function suggestSomethingElse() {
+    setRecommendationSelection({ key: recommendationKey, index: (activeChoiceIndex + 1) % recommendation.choices.length });
   }
 
   function toggleVoice() {
@@ -207,27 +215,30 @@ export default function Home() {
         <section className="recommendation-card">
           <div className="recommendation-spectrum" aria-hidden="true" />
           <div className="recommendation-heading">
-            <div><p className="eyebrow">Eat next</p><h2>{recommendation.next.title}</h2><p>{recommendation.intro}</p></div>
-            <span className="recommendation-context">{recommendation.context}</span>
+            <div><p className="eyebrow">Eat next</p><h2>{activeRecommendation.next.title}</h2><p>{recommendation.intro}</p></div>
+            <div className="recommendation-meta"><span className="recommendation-context">{recommendation.context}</span><span className="recommendation-choice">Option {activeChoiceIndex + 1} of {recommendation.choices.length}</span></div>
           </div>
-          <div className="recommendation-main">
+          <div className="recommendation-main" key={activeRecommendation.next.id}>
             <div className="recommendation-foods">
-              {recommendation.next.items.map((item) => <span key={item}>{item}</span>)}
+              {activeRecommendation.next.items.map((item) => <span key={item}>{item}</span>)}
             </div>
             <div className="recommendation-macros" aria-label="Recommended meal nutrition">
-              <span><strong>{round(recommendation.next.macros.calories)}</strong> kcal</span>
-              <span><strong>{round(recommendation.next.macros.protein, 1)}g</strong> protein</span>
-              <span><strong>{round(recommendation.next.macros.carbs, 1)}g</strong> carbs</span>
-              <span><strong>{round(recommendation.next.macros.fat, 1)}g</strong> fat</span>
-              <span><strong>{round(recommendation.next.macros.fibre, 1)}g</strong> fibre</span>
+              <span><strong>{round(activeRecommendation.next.macros.calories)}</strong> kcal</span>
+              <span><strong>{round(activeRecommendation.next.macros.protein, 1)}g</strong> protein</span>
+              <span><strong>{round(activeRecommendation.next.macros.carbs, 1)}g</strong> carbs</span>
+              <span><strong>{round(activeRecommendation.next.macros.fat, 1)}g</strong> fat</span>
+              <span><strong>{round(activeRecommendation.next.macros.fibre, 1)}g</strong> fibre</span>
             </div>
-            <button type="button" className="recommendation-button" onClick={() => loadRecommendation(recommendation.next)}>Check this meal</button>
+            <div className="recommendation-actions">
+              <button type="button" className="recommendation-button" onClick={() => loadRecommendation(activeRecommendation.next)}>Yeah, that looks good</button>
+              <button type="button" className="recommendation-skip-button" onClick={suggestSomethingElse}>Suggest something else <span aria-hidden="true">→</span></button>
+            </div>
           </div>
-          {recommendation.later.length > 0 && (
+          {activeRecommendation.later.length > 0 && (
             <div className="later-plan">
               <div><p className="eyebrow">Later today</p><strong>Use these only after the next meal</strong></div>
               <div className="later-list">
-                {recommendation.later.map((item, index) => (
+                {activeRecommendation.later.map((item, index) => (
                   <button type="button" key={`${item.id}-${index}`} onClick={() => loadRecommendation(item)}>
                     <span>{index + 1}</span><strong>{item.title}</strong><small>{round(item.macros.calories)} kcal · {round(item.macros.protein, 1)}g protein</small>
                   </button>
@@ -235,7 +246,7 @@ export default function Home() {
               </div>
             </div>
           )}
-          <p className="recommendation-note">{recommendation.note}</p>
+          <p className="recommendation-note">{activeRecommendation.note}</p>
         </section>
       )}
 

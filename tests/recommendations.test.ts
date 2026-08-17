@@ -7,6 +7,7 @@ const recommendDay = "recommendDay" in recommendationModule
 
 type MacroTotals = { calories: number; protein: number; carbs: number; fat: number; fibre: number };
 type Suggestion = { kind: "meal" | "snack"; title: string; macros: MacroTotals };
+type PlanChoice = { next: Suggestion; later: Suggestion[]; projected: MacroTotals; gaps: MacroTotals; note: string };
 type DayPlan = {
   context: string;
   next: Suggestion;
@@ -14,6 +15,7 @@ type DayPlan = {
   projected: MacroTotals;
   gaps: MacroTotals;
   note: string;
+  choices: PlanChoice[];
 };
 
 describe("daily food recommendations", () => {
@@ -42,6 +44,21 @@ describe("daily food recommendations", () => {
     expect(plan.projected.protein).toBeGreaterThanOrEqual(160);
     expect(plan.projected.calories).toBeLessThanOrEqual(1900);
     expect(plan.note.length).toBeGreaterThan(0);
+  });
+
+  test("offers many distinct fully planned alternatives after one meal", () => {
+    expect(typeof recommendDay).toBe("function");
+    if (!recommendDay) return;
+
+    const plan = recommendDay({ calories: 530, protein: 50.8, carbs: 41.7, fat: 17.4, fibre: 0.3 }, 1, 18);
+    expect(Array.isArray(plan.choices)).toBe(true);
+    if (!plan.choices) return;
+    const nextTitles = plan.choices.map((choice) => choice.next.title);
+
+    expect(plan.choices.length).toBeGreaterThanOrEqual(8);
+    expect(new Set(nextTitles).size).toBe(plan.choices.length);
+    expect(plan.choices.every((choice) => choice.next.kind === "meal")).toBe(true);
+    expect(plan.choices.every((choice) => choice.later.every((item) => item.kind === "snack"))).toBe(true);
   });
 
   test("uses snacks to close a small protein gap after two meals", () => {

@@ -22,10 +22,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Joe's Daily Nutrition",
     description: "A voice-first daily calorie and macro tracker built around Joe's food shop.",
-    icons: {
-      icon: [{ url: "/joe-gym-icon.svg", type: "image/svg+xml" }],
-      shortcut: "/joe-gym-icon.svg",
-    },
     openGraph: {
       title: "Joe's Daily Nutrition",
       description: "The whole day, in one circle.",
@@ -48,6 +44,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/joe-gym-icon.svg?v=3" type="image/svg+xml" />
+        <link rel="shortcut icon" href="/joe-gym-icon.svg?v=3" type="image/svg+xml" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

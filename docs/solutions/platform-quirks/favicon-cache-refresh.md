@@ -1,21 +1,21 @@
 ---
-title: Refresh a browser favicon with a new asset URL
+title: Keep a browser favicon link inside the document head
 category: platform-quirks
 date: 2026-08-17
 symptom: The live site tab continued to show a blank-looking generic icon.
-root_cause: Browsers cache favicons aggressively, so replacing artwork at the existing URL may not refresh the tab.
+root_cause: Dynamic metadata streamed the favicon link into the document body, where the browser did not reliably recognise it.
 ---
 
 # Favicon cache refresh
 
 ## Problem
 
-The site already declared `/favicon.svg`, but the browser tab did not show a recognisable personal gym or food identity. Reusing that same URL risks retaining the cached appearance even after changing its contents.
+The site declared a valid, reachable favicon, but the browser tab still showed no icon. The production HTML revealed that asynchronous metadata placed the icon link in a hidden block after the document head. The asset itself returned successfully, so the fault was link placement rather than packaging.
 
 ## Fix
 
-Publish the new artwork under a new descriptive URL and point both the standard icon and shortcut icon metadata to it. The new file uses a flexed-arm emoji on a high-contrast badge so it remains recognisable at small sizes.
+Render the standard and shortcut icon links directly inside the root layout's `<head>`. Use a versioned query string so browsers do not reuse an older favicon cache entry. Keep the flexed-arm artwork on a high-contrast badge so it remains recognisable at small sizes.
 
 ## Verification
 
-Build the production site, render the route, and confirm the generated icon links use the new URL. Render the SVG separately at a larger size to visually confirm the emoji, contrast, crop and coloured rim.
+Build the production site and inspect only the content between `<head>` and `</head>`, confirming that it contains the versioned icon link. Check that the published icon asset returns successfully, then refresh the live tab.

@@ -9,6 +9,14 @@ export type Suggestion = {
   macros: MacroTotals;
 };
 
+export type PlanChoice = {
+  next: Suggestion;
+  later: Suggestion[];
+  projected: MacroTotals;
+  gaps: MacroTotals;
+  note: string;
+};
+
 export type DayPlan = {
   context: string;
   intro: string;
@@ -17,6 +25,7 @@ export type DayPlan = {
   projected: MacroTotals;
   gaps: MacroTotals;
   note: string;
+  choices: PlanChoice[];
 };
 
 const TARGETS: MacroTotals = { calories: 1800, protein: 160, carbs: 155, fat: 60, fibre: 30 };
@@ -80,6 +89,46 @@ const MEALS: Suggestion[] = [
     items: ["200g cooked 5% mince", "1 Veetee sticky rice pot", "200g peppers", "75g avocado"],
     logText: "200g cooked 5% mince, one Veetee sticky rice pot, 200g peppers and 75g avocado",
     macros: macro(708, 68.5, 58.2, 23.3, 8.6),
+  },
+  {
+    id: "steak-and-chips",
+    kind: "meal",
+    title: "Steak, chips and broccoli",
+    items: ["180g cooked sirloin steak", "140g oven chips", "200g broccoli"],
+    logText: "180g cooked steak, 140g oven chips and 200g broccoli",
+    macros: macro(741, 59.3, 53, 31, 11.2),
+  },
+  {
+    id: "salmon-rice-bowl",
+    kind: "meal",
+    title: "Salmon rice bowl",
+    items: ["160g cooked salmon", "1 Veetee sticky rice pot", "250g broccoli"],
+    logText: "160g cooked salmon, one Veetee sticky rice pot and 250g broccoli",
+    macros: macro(681, 47.6, 52.2, 29.5, 8.3),
+  },
+  {
+    id: "chicken-and-chips",
+    kind: "meal",
+    title: "Chicken, chips and peppers",
+    items: ["180g cooked chicken thighs", "160g oven chips", "200g peppers"],
+    logText: "180g cooked chicken thighs, 160g oven chips and 200g peppers",
+    macros: macro(734, 51.9, 61.2, 30.9, 8.9),
+  },
+  {
+    id: "steak-pesto-pasta",
+    kind: "meal",
+    title: "Steak pesto pasta",
+    items: ["180g cooked sirloin steak", "60g dry fusilli", "10g pesto", "200g peppers"],
+    logText: "180g cooked steak, 60g dry pasta, 10g pesto and 200g peppers",
+    macros: macro(655, 59.5, 54.4, 21.8, 5.8),
+  },
+  {
+    id: "salmon-pasta",
+    kind: "meal",
+    title: "Salmon pasta and broccoli",
+    items: ["140g cooked salmon", "60g dry fusilli", "200g broccoli"],
+    logText: "140g cooked salmon, 60g dry pasta and 200g broccoli",
+    macros: macro(631, 45.8, 52, 24.7, 8.7),
   },
 ];
 
@@ -203,6 +252,23 @@ function candidatePlans(mealCount: number, needsMeal: boolean) {
 const timePeriod = (hour: number) => hour < 12 ? "Morning" : hour < 17 ? "Afternoon" : "Evening";
 const rounded = (value: number) => Math.max(0, Number(value.toFixed(1)));
 
+function choiceFromPlan(consumed: MacroTotals, items: Suggestion[]): PlanChoice {
+  const projected = add(consumed, totalSuggestions(items));
+  const gaps = {
+    calories: rounded(TARGETS.calories - projected.calories),
+    protein: rounded(TARGETS.protein - projected.protein),
+    carbs: rounded(TARGETS.carbs - projected.carbs),
+    fat: rounded(TARGETS.fat - projected.fat),
+    fibre: rounded(TARGETS.fibre - projected.fibre),
+  };
+  const note = gaps.fibre > 1
+    ? `This is the closest sensible finish from your current foods. Fibre would still be about ${Math.round(gaps.fibre)}g short, so add vegetables or another high-fibre food instead of making one meal enormous.`
+    : gaps.protein > 3
+      ? `This plan keeps portions sensible but leaves about ${Math.round(gaps.protein)}g protein. Add a little more lean meat or yoghurt if hunger allows.`
+      : "This combination brings the day close to your targets without relying on one oversized meal.";
+  return { next: items[0], later: items.slice(1), projected, gaps, note };
+}
+
 export function recommendDay(consumed: MacroTotals, mealCount: number, hour: number): DayPlan {
   const initialGaps = {
     calories: Math.max(0, TARGETS.calories - consumed.calories),
@@ -213,22 +279,23 @@ export function recommendDay(consumed: MacroTotals, mealCount: number, hour: num
   };
   const needsMeal = initialGaps.calories > 600 || initialGaps.protein > 45 || initialGaps.carbs > 55;
   const candidates = candidatePlans(mealCount, needsMeal);
-  const best = candidates.reduce((winner, candidate) => {
+  const ranked = candidates.map((candidate) => {
     const projected = add(consumed, totalSuggestions(candidate));
     const diversityPenalty = new Set(candidate.map((item) => item.id)).size === candidate.length ? 0 : 1.5;
     const score = scoreProjection(projected) + diversityPenalty + candidate.length * 0.05;
-    return !winner || score < winner.score ? { items: candidate, projected, score } : winner;
-  }, null as null | { items: Suggestion[]; projected: MacroTotals; score: number });
-
-  const selected = best?.items || [SNACKS[0]];
-  const projected = best?.projected || add(consumed, selected[0].macros);
-  const gaps = {
-    calories: rounded(TARGETS.calories - projected.calories),
-    protein: rounded(TARGETS.protein - projected.protein),
-    carbs: rounded(TARGETS.carbs - projected.carbs),
-    fat: rounded(TARGETS.fat - projected.fat),
-    fibre: rounded(TARGETS.fibre - projected.fibre),
-  };
+    return { items: candidate, score };
+  }).sort((a, b) => a.score - b.score);
+  const seenNext = new Set<string>();
+  const choices = ranked
+    .filter((candidate) => {
+      const nextId = candidate.items[0]?.id;
+      if (!nextId || seenNext.has(nextId)) return false;
+      seenNext.add(nextId);
+      return true;
+    })
+    .slice(0, 10)
+    .map((candidate) => choiceFromPlan(consumed, candidate.items));
+  const primary = choices[0] || choiceFromPlan(consumed, [SNACKS[0]]);
   const context = `${timePeriod(hour)} · ${mealCount} meal${mealCount === 1 ? "" : "s"} logged · ${Math.round(initialGaps.calories)} kcal left`;
   const intro = mealCount === 0
     ? "Start with a proper meal and keep the rest of the day balanced."
@@ -237,11 +304,5 @@ export function recommendDay(consumed: MacroTotals, mealCount: number, hour: num
       : needsMeal
         ? "You have eaten twice, but the remaining gap is still meal-sized."
         : "Your main meals are covered. Use a small top-up rather than forcing another dinner.";
-  const note = gaps.fibre > 1
-    ? `This is the closest sensible finish from your current foods. Fibre would still be about ${Math.round(gaps.fibre)}g short, so add vegetables or another high-fibre food instead of making one meal enormous.`
-    : gaps.protein > 3
-      ? `This plan keeps portions sensible but leaves about ${Math.round(gaps.protein)}g protein. Add a little more lean meat or yoghurt if hunger allows.`
-      : "This combination brings the day close to your targets without relying on one oversized meal.";
-
-  return { context, intro, next: selected[0], later: selected.slice(1), projected, gaps, note };
+  return { context, intro, ...primary, choices };
 }
