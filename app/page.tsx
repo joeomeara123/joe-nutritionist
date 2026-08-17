@@ -11,9 +11,9 @@ type Diary = Record<string, Meal[]>;
 const TARGETS: Macros = { calories: 1800, protein: 160, carbs: 155, fat: 60, fibre: 30 };
 const ZERO: Macros = { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0 };
 const CALORIE_SPLIT = [
-  { label: "Protein", grams: 160, calories: 640, percent: 35.6, color: "#b7d94c" },
-  { label: "Carbs", grams: 155, calories: 620, percent: 34.4, color: "#7184df" },
-  { label: "Fat", grams: 60, calories: 540, percent: 30, color: "#ed9863" },
+  { label: "Protein", grams: 160, calories: 640, percent: 35.6, color: "#ff3b30" },
+  { label: "Carbs", grams: 155, calories: 620, percent: 34.4, color: "#1769ff" },
+  { label: "Fat", grams: 60, calories: 540, percent: 30, color: "#ffc400" },
 ];
 
 const FOODS: Food[] = [
@@ -244,9 +244,6 @@ export default function Home() {
             <div className="wheel-target" aria-hidden="true" />
             <div className="wheel-progress" aria-hidden="true" />
             <div className="wheel-hole" aria-hidden="true" />
-            <span className="wheel-spoke spoke-protein" aria-hidden="true" />
-            <span className="wheel-spoke spoke-carbs" aria-hidden="true" />
-            <span className="wheel-spoke spoke-fat" aria-hidden="true" />
             <div className="wheel-centre"><strong>{caloriePct}%</strong><span>eaten</span><small>{round(consumed.calories)} / 1,800 kcal</small></div>
           </div>
           <div className="remaining-kcal"><strong>{Math.abs(round(TARGETS.calories - consumed.calories))}</strong><span>kcal {consumed.calories <= TARGETS.calories ? "left" : "over"}</span></div>
@@ -258,9 +255,9 @@ export default function Home() {
       <section className="macro-section">
         <div className="section-heading"><div><p className="eyebrow">What remains</p><h2>Today&apos;s targets</h2></div><p className="muted">Live after every meal</p></div>
         <div className="macro-ledger">
-          <MacroLine label="Protein" value={consumed.protein} target={TARGETS.protein} color="#b7d94c" note="build & recover" />
-          <MacroLine label="Carbs" value={consumed.carbs} target={TARGETS.carbs} color="#7184df" note="train & refuel" />
-          <MacroLine label="Fat" value={consumed.fat} target={TARGETS.fat} color="#ed9863" note="steady energy" />
+          <MacroLine label="Protein" value={consumed.protein} target={TARGETS.protein} color="#ff3b30" note="build & recover" />
+          <MacroLine label="Carbs" value={consumed.carbs} target={TARGETS.carbs} color="#1769ff" note="train & refuel" />
+          <MacroLine label="Fat" value={consumed.fat} target={TARGETS.fat} color="#ffc400" note="steady energy" />
           <MacroLine label="Fibre" value={consumed.fibre} target={TARGETS.fibre} color="#6f9782" note="30g minimum" />
         </div>
       </section>

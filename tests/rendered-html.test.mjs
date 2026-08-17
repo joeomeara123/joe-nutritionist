@@ -47,7 +47,6 @@ test("fills each macro sector independently against its own target", async () =>
   assert.match(page, /--carbs-fill/);
   assert.match(page, /--fat-fill/);
   assert.match(styles, /repeating-conic-gradient/);
-  assert.match(styles, /\.spoke-protein\s*\{\s*transform:rotate\(-90deg\)/);
 });
 
 test("starts the protein progress at the 12 o'clock divider", async () => {
@@ -55,4 +54,16 @@ test("starts the protein progress at the 12 o'clock divider", async () => {
   const progressRule = styles.match(/\.wheel-progress\s*\{[^}]+\}/)?.[0] || "";
   assert.doesNotMatch(progressRule, /from\s+-90deg/);
   assert.match(progressRule, /conic-gradient\(var\(--protein\)\s+0\s+var\(--protein-fill\)/);
+});
+
+test("uses vibrant category colours for both filled and unfinished wheel sectors", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const targetRule = styles.match(/\.wheel-target\s*\{[^}]+\}/)?.[0] || "";
+  assert.match(styles, /--protein:#ff3b30/i);
+  assert.match(styles, /--carbs:#1769ff/i);
+  assert.match(styles, /--fat:#ffc400/i);
+  assert.match(targetRule, /conic-gradient\(var\(--protein\)\s+0\s+128\.16deg,var\(--carbs\)\s+128\.16deg\s+252deg,var\(--fat\)\s+252deg\s+360deg\)/);
+  assert.match(targetRule, /mask:repeating-conic-gradient/);
+  assert.doesNotMatch(page, /wheel-spoke|spoke-protein|spoke-carbs|spoke-fat/);
 });
