@@ -22,8 +22,16 @@ test("renders Joe's nutrition dashboard shell", async () => {
 
 test("keeps Joe's targets and current Veetee pot values exact", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const { FOODS, scaled } = await import("../lib/food-parser.ts");
+  const stickyRice = FOODS.find((food) => food.id === "sticky-rice");
+  assert.ok(stickyRice);
+  const fullPot = scaled(stickyRice, 130);
   assert.match(page, /calories:\s*1800,\s*protein:\s*160,\s*carbs:\s*155,\s*fat:\s*60,\s*fibre:\s*30/);
-  assert.match(page, /portionGrams:\s*130[\s\S]*?calories:\s*198,\s*protein:\s*3,\s*carbs:\s*41\.2,\s*fat:\s*2\.3/);
+  assert.equal(fullPot.display, "1 pot");
+  assert.equal(fullPot.calories, 198);
+  assert.equal(fullPot.protein, 3);
+  assert.equal(fullPot.carbs, 41.2);
+  assert.equal(fullPot.fat, 2.3);
   assert.match(page, /scaled\(FOODS\[0\],\s*192\)/);
   assert.match(page, /scaled\(FOODS\[4\],\s*130\)/);
   assert.match(page, /Protein[\s\S]*?grams:\s*160,\s*calories:\s*640,\s*percent:\s*35\.6/);
@@ -66,4 +74,10 @@ test("uses vibrant category colours for both filled and unfinished wheel sectors
   assert.match(targetRule, /conic-gradient\(var\(--protein\)\s+0\s+128\.16deg,var\(--carbs\)\s+128\.16deg\s+252deg,var\(--fat\)\s+252deg\s+360deg\)/);
   assert.match(targetRule, /mask:repeating-conic-gradient/);
   assert.doesNotMatch(page, /wheel-spoke|spoke-protein|spoke-carbs|spoke-fat/);
+});
+
+test("counts proper meals separately from snacks for the next-food plan", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /properMealCount\s*=\s*meals\.filter\(\(meal\)\s*=>\s*meal\.name\s*!==\s*"Snack"\)\.length/);
+  assert.match(page, /recommendDay\(consumed,\s*properMealCount/);
 });

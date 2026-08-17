@@ -63,6 +63,28 @@ main { width:min(1180px,calc(100% - 40px)); margin:0 auto; padding:24px 0 56px; 
 .coach-strip strong { font-size:13px; }
 .coach-strip p { display:inline; margin:0 0 0 8px; color:var(--muted); font-size:12px; }
 
+.recommendation-card { position:relative; margin-top:24px; border:1px solid var(--ink); border-radius:25px; background:var(--surface); overflow:hidden; box-shadow:0 22px 54px #2730240d; }
+.recommendation-spectrum { height:6px; background:linear-gradient(90deg,var(--protein) 0 35.6%,var(--carbs) 35.6% 70%,var(--fat) 70% 100%); }
+.recommendation-heading { padding:27px 29px 22px; display:flex; align-items:flex-start; justify-content:space-between; gap:30px; }
+.recommendation-heading h2 { margin:5px 0 7px; font-size:34px; font-weight:760; letter-spacing:-.055em; }
+.recommendation-heading>div>p:last-child { max-width:600px; margin:0; color:var(--muted); font-size:12px; line-height:1.5; }
+.recommendation-context { padding:8px 11px; border:1px solid var(--line); border-radius:999px; color:var(--muted); background:white; font-family:var(--font-geist-mono),monospace; font-size:9px; white-space:nowrap; }
+.recommendation-main { margin:0 29px; padding:19px 0; border-block:1px solid var(--line); display:grid; grid-template-columns:1.1fr 1fr auto; align-items:center; gap:28px; }
+.recommendation-foods { display:flex; flex-wrap:wrap; gap:7px; }
+.recommendation-foods span { padding:8px 10px; border-radius:9px; background:#eef0e9; font-size:10px; font-weight:700; }
+.recommendation-macros { display:grid; grid-template-columns:repeat(3,1fr); gap:8px 16px; }
+.recommendation-macros span { color:var(--muted); font-size:9px; }
+.recommendation-macros strong { display:block; color:var(--ink); font-family:var(--font-geist-mono),monospace; font-size:15px; }
+.recommendation-button { min-height:44px; padding:0 17px; border:0; border-radius:12px; color:white; background:var(--ink); font-size:11px; font-weight:780; cursor:pointer; }
+.later-plan { padding:20px 29px; display:grid; grid-template-columns:190px 1fr; gap:24px; align-items:start; }
+.later-plan>div:first-child>strong { display:block; margin-top:5px; font-size:12px; line-height:1.4; }
+.later-list { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.later-list button { min-height:66px; padding:10px; border:1px solid var(--line); border-radius:12px; display:grid; grid-template-columns:24px 1fr; column-gap:8px; align-items:center; text-align:left; background:white; cursor:pointer; }
+.later-list button>span { grid-row:1 / 3; width:24px; height:24px; border-radius:50%; display:grid; place-items:center; color:white; background:var(--ink); font-family:var(--font-geist-mono),monospace; font-size:9px; }
+.later-list strong { align-self:end; font-size:10px; }
+.later-list small { align-self:start; color:var(--muted); font-size:8px; }
+.recommendation-note { margin:0; padding:13px 29px; border-top:1px solid var(--line); color:#5f655f; background:#f2f3ee; font-size:10px; line-height:1.45; }
+
 .macro-section,.entry-card,.meals-section { margin-top:48px; }
 .section-heading { display:flex; align-items:end; justify-content:space-between; margin-bottom:16px; }
 .section-heading h2 { margin:4px 0 0; font-size:25px; font-weight:690; letter-spacing:-.045em; }
@@ -130,6 +152,9 @@ footer span { font-family:var(--font-geist-mono),monospace; }
   .plate-copy h2 { margin-bottom:28px; }
   .macro-line { grid-template-columns:170px 1fr 105px; gap:16px; }
   .macro-left { display:none; }
+  .recommendation-main { grid-template-columns:1fr 1fr; }
+  .recommendation-button { grid-column:1 / -1; }
+  .later-plan { grid-template-columns:1fr; }
   .preview-panel { grid-template-columns:1fr; }
   .preview-actions { justify-content:flex-end; }
 }
@@ -150,6 +175,16 @@ footer span { font-family:var(--font-geist-mono),monospace; }
   .remaining-kcal { right:0; bottom:15px; width:102px; }
   .remaining-kcal strong { font-size:21px; }
   .coach-strip p { display:block; margin:5px 0 0; line-height:1.4; }
+  .recommendation-card { border-radius:20px; }
+  .recommendation-heading { padding:22px 18px 17px; flex-direction:column; gap:13px; }
+  .recommendation-heading h2 { font-size:29px; }
+  .recommendation-context { white-space:normal; }
+  .recommendation-main { margin:0 18px; grid-template-columns:1fr; gap:18px; }
+  .recommendation-macros { grid-template-columns:repeat(3,1fr); }
+  .recommendation-button { grid-column:auto; }
+  .later-plan { padding:18px; }
+  .later-list { grid-template-columns:1fr; }
+  .recommendation-note { padding:13px 18px; }
   .macro-section,.entry-card,.meals-section { margin-top:38px; }
   .macro-line { grid-template-columns:124px 1fr 76px; min-height:64px; gap:11px; }
   .macro-name small { display:none; }

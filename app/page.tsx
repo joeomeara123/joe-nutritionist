@@ -1,10 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FOODS, parseFood, scaled, type Macros, type ParsedFood } from "@/lib/food-parser";
+import { recommendDay, type Suggestion } from "@/lib/recommendations";
 
-type Macros = { calories: number; protein: number; carbs: number; fat: number; fibre: number };
-type Food = Macros & { id: string; name: string; aliases: string[]; basis: "100g" | "portion"; portionGrams?: number; portionLabel?: string };
-type ParsedFood = Macros & { id: string; name: string; grams: number; display: string };
 type Meal = { id: string; name: string; text: string; time: string; items: ParsedFood[]; macros: Macros };
 type Diary = Record<string, Meal[]>;
 
@@ -16,69 +15,10 @@ const CALORIE_SPLIT = [
   { label: "Fat", grams: 60, calories: 540, percent: 30, color: "#ffc400" },
 ];
 
-const FOODS: Food[] = [
-  { id: "chicken-thigh", name: "Cooked chicken thighs", aliases: ["chicken thighs", "chicken thigh", "cooked chicken", "chicken"], basis: "100g", portionGrams: 64, portionLabel: "thigh", calories: 168, protein: 24.8, carbs: 0, fat: 7.6, fibre: 0 },
-  { id: "mince", name: "Cooked 5% beef mince", aliases: ["5% mince", "five percent mince", "beef mince", "mince meat", "mince"], basis: "100g", calories: 168, protein: 31, carbs: 0, fat: 4.7, fibre: 0 },
-  { id: "steak", name: "Cooked sirloin steak", aliases: ["sirloin steak", "steak"], basis: "100g", calories: 189, protein: 27.7, carbs: 0, fat: 8.7, fibre: 0 },
-  { id: "salmon", name: "Cooked salmon", aliases: ["salmon fillets", "salmon fillet", "salmon"], basis: "100g", calories: 247, protein: 24.1, carbs: 0, fat: 16.4, fibre: 0 },
-  { id: "sticky-rice", name: "Veetee sticky rice pot", aliases: ["veetee sticky rice", "vt sticky rice", "sticky rice pot", "sticky rice", "veetee cooked rice", "vt cooked rice", "veetee rice pot", "vt rice pot", "veetee rice", "vt rice"], basis: "portion", portionGrams: 130, portionLabel: "pot", calories: 198, protein: 3, carbs: 41.2, fat: 2.3, fibre: 0 },
-  { id: "jasmine-rice", name: "Veetee jasmine rice pot", aliases: ["veetee jasmine rice", "vt jasmine rice", "jasmine rice pot", "jasmine rice"], basis: "portion", portionGrams: 140, portionLabel: "pot", calories: 202, protein: 4.1, carbs: 40.7, fat: 2.1, fibre: 1.7 },
-  { id: "pasta", name: "Dry fusilli pasta", aliases: ["fusilli pasta", "dry pasta", "pasta"], basis: "100g", calories: 359, protein: 12, carbs: 72, fat: 1.5, fibre: 3.5 },
-  { id: "broccoli", name: "Broccoli", aliases: ["broccoli"], basis: "100g", calories: 35, protein: 2.4, carbs: 4.4, fat: 0.4, fibre: 3.3 },
-  { id: "peppers", name: "Sweet peppers", aliases: ["sweet peppers", "bell peppers", "pepper", "peppers"], basis: "100g", calories: 27, protein: 1, carbs: 5.3, fat: 0.3, fibre: 1.8 },
-  { id: "avocado", name: "Avocado", aliases: ["avocado"], basis: "100g", calories: 160, protein: 2, carbs: 8.5, fat: 14.7, fibre: 6.7 },
-  { id: "feta", name: "Feta", aliases: ["feta cheese", "feta"], basis: "100g", calories: 276, protein: 14.2, carbs: 0.8, fat: 23, fibre: 0 },
-  { id: "pesto", name: "Green pesto", aliases: ["green pesto", "pesto"], basis: "100g", calories: 455, protein: 4.7, carbs: 5.6, fat: 46.1, fibre: 1 },
-  { id: "chips", name: "Oven chips", aliases: ["gastro chips", "oven chips", "chips"], basis: "100g", calories: 236, protein: 3.3, carbs: 31.6, fat: 10.4, fibre: 3.3 },
-  { id: "nandos", name: "Nando's PERi-PERi sauce", aliases: ["nando's hot sauce", "nandos hot sauce", "nando sauce", "nandos sauce", "peri-peri sauce", "peri peri sauce"], basis: "portion", portionGrams: 20, portionLabel: "serving", calories: 9, protein: 0.2, carbs: 0.5, fat: 0.5, fibre: 0.3 },
-  { id: "protein-yogurt", name: "High-protein yoghurt", aliases: ["high protein yoghurt", "high protein yogurt", "protein yoghurt", "protein yogurt"], basis: "100g", calories: 73, protein: 10, carbs: 5.1, fat: 0.8, fibre: 0 },
-];
-
-const numberWords: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4 };
 const addMacros = (a: Macros, b: Macros): Macros => ({ calories: a.calories + b.calories, protein: a.protein + b.protein, carbs: a.carbs + b.carbs, fat: a.fat + b.fat, fibre: a.fibre + b.fibre });
 const round = (value: number, places = 0) => Number(value.toFixed(places));
 const dateKey = (date = new Date()) => date.toLocaleDateString("en-CA");
 const longDate = (iso: string) => new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${iso}T12:00:00`));
-
-function scaled(food: Food, grams: number): ParsedFood {
-  const factor = food.basis === "100g" ? grams / 100 : grams / (food.portionGrams || grams);
-  return {
-    id: food.id,
-    name: food.name,
-    grams,
-    display: food.basis === "portion" && grams === food.portionGrams ? `1 ${food.portionLabel}` : `${round(grams)}g`,
-    calories: food.calories * factor,
-    protein: food.protein * factor,
-    carbs: food.carbs * factor,
-    fat: food.fat * factor,
-    fibre: food.fibre * factor,
-  };
-}
-
-function parseFood(text: string): { items: ParsedFood[]; unknown: string[] } {
-  const normalised = text.toLowerCase().replace(/perinaise/g, "peri mayonnaise");
-  const found: ParsedFood[] = [];
-  const occupied: Array<[number, number]> = [];
-
-  for (const food of FOODS) {
-    const alias = food.aliases.find((candidate) => normalised.includes(candidate));
-    if (!alias) continue;
-    const aliasIndex = normalised.indexOf(alias);
-    if (occupied.some(([start, end]) => aliasIndex >= start && aliasIndex < end)) continue;
-    const before = normalised.slice(Math.max(0, aliasIndex - 42), aliasIndex);
-    const after = normalised.slice(aliasIndex + alias.length, aliasIndex + alias.length + 28);
-    const gramsBefore = before.match(/(\d+(?:\.\d+)?)\s*(?:g|grams?|grammes?)\s*(?:of\s*)?(?:cooked\s*)?$/);
-    const gramsAfter = after.match(/^[^,\d]{0,20}(\d+(?:\.\d+)?)\s*(?:g|grams?|grammes?)/);
-    const wordBefore = before.match(/(?:^|\s)(a|an|one|two|three|four)\s*(?:cooked\s*)?$/);
-    const count = wordBefore ? numberWords[wordBefore[1]] : 1;
-    let grams = gramsBefore ? Number(gramsBefore[1]) : gramsAfter ? Number(gramsAfter[1]) : food.portionGrams || 100;
-    if (!gramsBefore && !gramsAfter && food.portionGrams) grams *= count;
-    found.push(scaled(food, grams));
-    occupied.push([aliasIndex, aliasIndex + alias.length]);
-  }
-
-  return { items: found, unknown: found.length ? [] : [text] };
-}
 
 function total(items: ParsedFood[] | Meal[]): Macros {
   return items.reduce((sum, item) => addMacros(sum, "macros" in item ? item.macros : item), ZERO);
@@ -147,9 +87,11 @@ export default function Home() {
   }, [diary, hydrated]);
 
   const meals = diary[selectedDate] || [];
+  const properMealCount = meals.filter((meal) => meal.name !== "Snack").length;
   const consumed = total(meals);
   const previewMacros = total(previewItems);
   const coach = coachMessage(consumed, previewItems.length ? previewMacros : undefined);
+  const recommendation = recommendDay(consumed, properMealCount, new Date().getHours());
   const caloriePct = Math.min(100, Math.round((consumed.calories / TARGETS.calories) * 100));
   const proteinEnd = 128.16;
   const carbsEnd = 252;
@@ -193,6 +135,15 @@ export default function Home() {
 
   function removeMeal(id: string) {
     setDiary((current) => ({ ...current, [selectedDate]: (current[selectedDate] || []).filter((meal) => meal.id !== id) }));
+  }
+
+  function loadRecommendation(suggestion: Suggestion) {
+    const parsed = parseFood(suggestion.logText);
+    setEntry(suggestion.logText);
+    setPreviewItems(parsed.items);
+    setParseError("");
+    setMealName(suggestion.kind === "snack" ? "Snack" : properMealCount ? "Dinner" : "Lunch");
+    requestAnimationFrame(() => document.getElementById("meal-entry")?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
 
   function toggleVoice() {
@@ -252,6 +203,42 @@ export default function Home() {
 
       <article className={`coach-strip ${coach.tone}`}><span className="coach-dot">●</span><div><strong>{coach.title}</strong><p>{coach.body}</p></div></article>
 
+      {selectedDate === today && (
+        <section className="recommendation-card">
+          <div className="recommendation-spectrum" aria-hidden="true" />
+          <div className="recommendation-heading">
+            <div><p className="eyebrow">Eat next</p><h2>{recommendation.next.title}</h2><p>{recommendation.intro}</p></div>
+            <span className="recommendation-context">{recommendation.context}</span>
+          </div>
+          <div className="recommendation-main">
+            <div className="recommendation-foods">
+              {recommendation.next.items.map((item) => <span key={item}>{item}</span>)}
+            </div>
+            <div className="recommendation-macros" aria-label="Recommended meal nutrition">
+              <span><strong>{round(recommendation.next.macros.calories)}</strong> kcal</span>
+              <span><strong>{round(recommendation.next.macros.protein, 1)}g</strong> protein</span>
+              <span><strong>{round(recommendation.next.macros.carbs, 1)}g</strong> carbs</span>
+              <span><strong>{round(recommendation.next.macros.fat, 1)}g</strong> fat</span>
+              <span><strong>{round(recommendation.next.macros.fibre, 1)}g</strong> fibre</span>
+            </div>
+            <button type="button" className="recommendation-button" onClick={() => loadRecommendation(recommendation.next)}>Check this meal</button>
+          </div>
+          {recommendation.later.length > 0 && (
+            <div className="later-plan">
+              <div><p className="eyebrow">Later today</p><strong>Use these only after the next meal</strong></div>
+              <div className="later-list">
+                {recommendation.later.map((item, index) => (
+                  <button type="button" key={`${item.id}-${index}`} onClick={() => loadRecommendation(item)}>
+                    <span>{index + 1}</span><strong>{item.title}</strong><small>{round(item.macros.calories)} kcal · {round(item.macros.protein, 1)}g protein</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="recommendation-note">{recommendation.note}</p>
+        </section>
+      )}
+
       <section className="macro-section">
         <div className="section-heading"><div><p className="eyebrow">What remains</p><h2>Today&apos;s targets</h2></div><p className="muted">Live after every meal</p></div>
         <div className="macro-ledger">
@@ -262,7 +249,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="entry-card">
+      <section className="entry-card" id="meal-entry">
         <div className="entry-heading"><div><p className="eyebrow">Add food</p><h2>Say exactly what you ate.</h2><p className="entry-example">“192g cooked chicken, one Veetee rice pot and Nando&apos;s sauce.”</p></div><div className="meal-selector"><button type="button" className={mealName === "Lunch" ? "active" : ""} onClick={() => setMealName("Lunch")}>Lunch</button><button type="button" className={mealName === "Dinner" ? "active" : ""} onClick={() => setMealName("Dinner")}>Dinner</button><button type="button" className={mealName === "Snack" ? "active" : ""} onClick={() => setMealName("Snack")}>Snack</button></div></div>
         <form className="entry-row" onSubmit={previewEntry}>
           <input value={entry} onChange={(event) => setEntry(event.target.value)} aria-label="Describe your food" placeholder="e.g. 200g cooked mince, one rice pot and 100g peppers" />
