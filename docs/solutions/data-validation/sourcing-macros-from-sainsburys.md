@@ -92,3 +92,24 @@ The Veetee pots and McCain Gastro chips are genuinely absent, confirmed on two s
 
 **A negative result from a scraper needs the same scepticism as a positive one.** "No data
 found" is a claim about the scraper at least as much as about the shop.
+
+## Follow-up 2: the last three, from outside Sainsbury's (2026-08-17)
+
+Joe's suggestion — just search the web — closed the remaining gap. Sainsbury's is one retailer,
+and its listing is not the label:
+
+- **McCain Gastro chips** — the manufacturer's own site publishes frozen *and* oven-baked
+  columns side by side: 166 kcal frozen, 270 oven baked per 100g. That also yields the cooked
+  ratio (166/270 = 0.615), so a frozen weight now converts like any other uncooked weight. Some
+  retailer listings say 257 kcal; the manufacturer's figure is the one to trust.
+- **Both Veetee pots** — the packaging as transcribed on Open Food Facts. Community data is
+  normally too weak to rely on, but both entries matched the app's existing figures *to the
+  decimal* (sticky 152 kcal/100g against a stored 198/130g pot = 152.3; jasmine 144 against
+  144.3). Two independent transcriptions of the same label agreeing is real corroboration.
+
+Every food in the app is now sourced, and the test that used to list the exceptions asserts an
+empty list instead.
+
+The lesson on top of the previous one: **"unavailable" was really "unavailable from the one
+place I looked."** A single retailer's API is not the world, and the manufacturer publishes the
+label the retailer is only paraphrasing.

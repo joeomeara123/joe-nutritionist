@@ -73,9 +73,13 @@ export const FOODS: Food[] = [
     source: sainsburys("Sainsbury's 30 Days Matured British Beef Thick Cut Sirloin Steak, Taste the Difference 400g", "sainsburys-30-days-matured-british-beef-thick-cut-sirloin-steak-taste-the-difference-400g", "per 100g, cooked as per instructions") },
   { id: "salmon", name: "Cooked salmon", aliases: ["salmon fillets", "salmon fillet", "salmon"], basis: "100g", weighedAs: "cooked", cookedRatio: 0.8, calories: 219, protein: 28.4, carbs: 0, fat: 11.4, fibre: 0,
     source: sainsburys("Sainsbury's 2 Skinless Scottish Salmon Fillets 220g", "sainsburys-2-skinless-scottish-salmon-fillets-220g", "per 100g, pan fried") },
-  // Veetee's Heat & Eat pots are stocked but carry no nutrition table on the product page.
-  { id: "sticky-rice", name: "Veetee sticky rice pot", aliases: ["veetee sticky rice", "vt sticky rice", "sticky rice pot", "sticky rice", "veetee cooked rice", "vt cooked rice", "veetee rice pot", "vt rice pot", "veetee rice", "vt rice"], basis: "portion", portionGrams: 130, portionLabel: "pot", calories: 198, protein: 3, carbs: 41.2, fat: 2.3, fibre: 0 },
-  { id: "jasmine-rice", name: "Veetee jasmine rice pot", aliases: ["veetee jasmine rice", "vt jasmine rice", "jasmine rice pot", "jasmine rice"], basis: "portion", portionGrams: 140, portionLabel: "pot", calories: 202, protein: 4.1, carbs: 40.7, fat: 2.1, fibre: 1.7 },
+  // Sainsbury's own listing for the Veetee pots carries no table, so these come from the
+  // packaging as transcribed on Open Food Facts. Both agreed to the decimal with the figures
+  // already in the app, which is the corroboration that makes a community source usable here.
+  { id: "sticky-rice", name: "Veetee sticky rice pot", aliases: ["veetee sticky rice", "vt sticky rice", "sticky rice pot", "sticky rice", "veetee cooked rice", "vt cooked rice", "veetee rice pot", "vt rice pot", "veetee rice", "vt rice"], basis: "portion", portionGrams: 130, portionLabel: "pot", calories: 198, protein: 3, carbs: 41.2, fat: 2.3, fibre: 0,
+    source: { product: "Veetee Heat & Eat Sticky Rice Pot", url: "https://uk-gd.openfoodfacts.org/product/5016805010255/sticky-rice-veetee", basis: "per 100g (152kcal 2.3P 31.7C 1.8F), scaled to the 130g pot the label names; fibre is not published" } },
+  { id: "jasmine-rice", name: "Veetee jasmine rice pot", aliases: ["veetee jasmine rice", "vt jasmine rice", "jasmine rice pot", "jasmine rice"], basis: "portion", portionGrams: 140, portionLabel: "pot", calories: 202, protein: 4.1, carbs: 40.7, fat: 2.1, fibre: 1.7,
+    source: { product: "Veetee Heat & Eat Thai Jasmine Rice Pot", url: "https://world.openfoodfacts.org/product/5016805010217/veetee-thai-jasmine-rice", basis: "per 100g (144kcal 2.9P 29.1C 1.5F 1.2fib), scaled to the 140g pot the label names" } },
   { id: "pasta", name: "Dry fusilli pasta", aliases: ["fusilli pasta", "dry pasta", "pasta"], basis: "100g", weighedAs: "uncooked", cookedRatio: 2.25, calories: 351, protein: 14, carbs: 69, fat: 1.5, fibre: 2.9,
     source: sainsburys("De Cecco Fusilli Pasta 500g", "de-cecco-fusilli-pasta-500g", "per 100g dry — Sainsbury's own fusilli publishes a cooked table, which is not comparable") },
   { id: "broccoli", name: "Broccoli", aliases: ["broccoli"], basis: "100g", calories: 35, protein: 3.3, carbs: 2.8, fat: 0.5, fibre: 2.8,
@@ -91,8 +95,11 @@ export const FOODS: Food[] = [
   // the 100g fallback — 100g of pesto is 451 kcal, which quietly wrecks a day's numbers.
   { id: "pesto", name: "Green pesto", aliases: ["green pesto", "pesto"], basis: "100g", portionGrams: 15, portionLabel: "tbsp", calories: 451, protein: 4.3, carbs: 6.4, fat: 45, fibre: 1.8,
     source: sainsburys("Sacla Organic Basil Pesto 190g", "sacla-organic-basil-pesto-190g", "per 100g") },
-  // Sainsbury's Gastro chips are not listed with a nutrition table.
-  { id: "chips", name: "Oven chips", aliases: ["gastro chips", "oven chips", "chips"], basis: "100g", calories: 236, protein: 3.3, carbs: 31.6, fat: 10.4, fibre: 3.3 },
+  // Straight off McCain's own site, which publishes frozen and oven-baked columns side by side.
+  // Some retailer listings show 257kcal; the manufacturer's 270 is the one to trust, and it is
+  // the oven-baked column that matches how Joe eats them.
+  { id: "chips", name: "Oven chips", aliases: ["gastro chips", "oven chips", "chips"], basis: "100g", weighedAs: "cooked", cookedRatio: 0.615, calories: 270, protein: 3.1, carbs: 33.2, fat: 13.2, fibre: 2.9,
+    source: { product: "McCain Gastro Triple Cooked Chips", url: "https://www.mccain.co.uk/gastro-triple-cooked-chips/", basis: "per 100g oven baked; frozen is 166kcal 1.7P 21.8C 7.7F 1.2fib, hence the 0.615 cooked ratio" } },
   { id: "nandos", name: "Nando's PERi-PERi sauce", aliases: ["nando's hot sauce", "nandos hot sauce", "nando sauce", "nandos sauce", "peri-peri sauce", "peri peri sauce"], basis: "portion", portionGrams: 20, portionLabel: "serving", calories: 9.8, protein: 0.1, carbs: 0.3, fat: 0.8, fibre: 0,
     source: sainsburys("Nando's Peri Peri Sauce Medium 125g", "nando-s-peri-peri-sauce-medium-125g", "per 100g (49kcal 0.6P 1.4C 4.2F), scaled to the 20g serving; fibre is not published") },
   { id: "protein-yogurt", name: "High-protein yoghurt", aliases: ["high protein yoghurt", "high protein yogurt", "protein yoghurt", "protein yogurt"], basis: "100g", calories: 72, protein: 10, carbs: 6.6, fat: 0.2, fibre: 0,

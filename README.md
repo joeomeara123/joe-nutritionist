@@ -59,13 +59,16 @@ URL, and the basis wording off that page — "per 100g" means different things f
 a cooked-as-instructed one. UK labels report *available* carbohydrate with fibre listed
 separately, so American figures for the same food are not interchangeable.
 
-Three foods have **no** source, because Sainsbury's publishes no nutrition table for them: the
-two Veetee Heat & Eat rice pots and McCain's Gastro chips. Their macros are estimates.
-`tests/food-data.test.ts` asserts that list exactly, so a new unsourced food fails the suite
-instead of blending in, and the chat is told to flag them. Do not fill one in from a similar
-product — but do re-check before concluding a food cannot be sourced. An empty `details_html`
-from the Sainsbury's API turns out to be transient, and some products publish their numbers
-only per bagel or per tablespoon, which wrongly put three foods on this list at first.
+**Every food now has one.** `tests/food-data.test.ts` keeps it that way: a food without a
+`source` fails the suite. Where Sainsbury's own listing carries no table the source is the
+manufacturer (McCain) or the packaging as transcribed on Open Food Facts — and in the two cases
+that used a community source, the figures matched the app's existing values to the decimal,
+which is the corroboration that made them usable.
+
+Getting there took three passes. The Sainsbury's API returns an empty `details_html`
+intermittently, and some products publish only a per-bagel or per-tablespoon column, so six
+foods looked unsourceable when in the end none were. Re-check, and look beyond one retailer,
+before concluding a food cannot be sourced. Never fill one in from a similar product.
 
 Quantities the app supplies rather than reads are flagged in the preview. There are two kinds,
 and they are different: `"quantity"` (a food named with no amount — peanut butter could be 10g

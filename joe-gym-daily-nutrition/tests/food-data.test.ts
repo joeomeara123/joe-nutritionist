@@ -4,15 +4,17 @@ import { FOODS, parseFood } from "../lib/food-parser";
 import { recommendDay } from "../lib/recommendations";
 
 /**
- * Foods Sainsbury's stocks but publishes no nutrition table for: the Veetee Heat & Eat pots and
- * McCain's Gastro chips. Their macros are estimates carried over from the original build.
+ * Foods whose macros are estimates rather than label figures. **This list is now empty**, and
+ * the assertion below is what keeps it that way: a new food without a `source` fails the suite.
  *
- * This list is asserted exactly, and it has already earned that. A first pass wrongly put the
- * protein bagel, feta and olive oil in here — an empty `details_html` from the Sainsbury's API
- * turned out to be transient, and one product published its numbers only per bagel. Re-check
- * before concluding a food cannot be sourced; do not fill one in from a similar product.
+ * It took three passes to empty. The Sainsbury's API returns an empty `details_html`
+ * intermittently, and some products publish only a per-bagel or per-tablespoon column, so six
+ * foods looked unsourceable when only three were. The last three came from the manufacturer
+ * (McCain) and from label transcriptions on Open Food Facts that matched the stored figures to
+ * the decimal. Re-check, and widen the source beyond one retailer, before concluding a food
+ * cannot be sourced — and never fill one in from a similar product.
  */
-const UNSOURCED = ["sticky-rice", "jasmine-rice", "chips"];
+const UNSOURCED: string[] = [];
 
 describe("every food says where its numbers came from", () => {
   test("only the known exceptions lack a source", () => {
@@ -23,7 +25,8 @@ describe("every food says where its numbers came from", () => {
   test("each source names a real Sainsbury's product page and its basis", () => {
     for (const food of FOODS) {
       if (!food.source) continue;
-      expect(food.source.url).toMatch(/^https:\/\/www\.sainsburys\.co\.uk\/gol-ui\/product\/[a-z0-9-]+$/);
+      // Sainsbury's, the manufacturer, or a label transcription — but always a real page.
+      expect(food.source.url).toMatch(/^https:\/\/[a-z0-9.-]+\.[a-z]{2,}\/\S+$/);
       expect(food.source.product.length).toBeGreaterThan(8);
       // The basis matters as much as the number: "per 100g" of a raw pack and of a
       // cooked-as-instructed one are different quantities.
