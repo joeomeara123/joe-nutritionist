@@ -1,100 +1,65 @@
-# vinext-starter
+# joe-nutritionist
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+Joe's personal nutrition system: a voice-first daily nutrition dashboard plus the
+weekly food-plan artefacts that feed it.
 
-## Prerequisites
+Everything here is built around one fixed set of daily targets:
 
-- Node.js `>=22.13.0`
+| Target       | Value      |
+| ------------ | ---------- |
+| Calories     | 1,800 kcal |
+| Protein      | 160 g      |
+| Carbohydrate | 155 g      |
+| Fat          | 60 g       |
+| Fibre        | ≥ 30 g (hard minimum) |
 
-## Quick Start
+## Repo map
+
+| Path                       | What it is |
+| -------------------------- | ---------- |
+| `joe-gym-daily-nutrition/` | The dashboard app. Log meals in natural language (with voice input where the browser supports it), see daily totals, remaining macros and adaptive meal suggestions. |
+| `docs/plans/`              | Plans written before building something. |
+| `docs/solutions/`          | One doc per bug/gotcha already solved, grouped by category, with YAML frontmatter. **Read the relevant category before touching that area.** |
+| `outputs/`                 | Generated deliverables. `weekly_food_plan_2026-08-15/` holds the weekly food plan workbook (`JOM_Gym_Weekly_Food_Plan.xlsx`) and the screenshots taken while verifying it. |
+| `AGENTS.md`                | Project-wide rules and dated gotchas for any coding agent. Read first. |
+| `joe-gym-daily-nutrition/AGENTS.md` | App-specific rules (nutrition-data conventions, parser rules). |
+
+## The dashboard app
+
+Stack: vinext (Next-style App Router on Vite/RSC) → Cloudflare Workers, React 19,
+Tailwind 4, Drizzle (schema present, D1 binding not yet enabled). Hosted on
+OpenAI Sites — see `joe-gym-daily-nutrition/.openai/hosting.json`.
+
+Requires Node `>=22.13.0`.
 
 ```bash
+cd joe-gym-daily-nutrition
 npm install
-npm run dev
-npm run build
+npm run dev     # local development
+npm run build   # verify the build output
+npm test        # build + rendered-output test
+npm run lint
 ```
 
-This starter does not use `wrangler.jsonc`.
+Key modules:
 
-## Included Shape
+- `app/page.tsx` — dashboard UI, including the calorie-composition wheel.
+- `lib/food-parser.ts` — turns spoken/typed phrases into foods and amounts.
+- `lib/recommendations.ts` — adaptive suggestions for the remaining macros.
+- `tests/` — `food-parser`, `recommendations`, and a rendered-HTML check.
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
+## Working conventions
 
-## Workspace Auth Headers
+- Read `AGENTS.md` and the matching `docs/solutions/` category before changing an area.
+- Every nutrition value must record its basis (per 100 g / cooked / raw / per portion)
+  and be scaled to the actual portion.
+- Verification is not optional: a production build plus the relevant test, and a
+  visual check for UI changes.
+- After fixing a bug, add a `docs/solutions/<category>/` doc and a one-line dated
+  entry in `AGENTS.md`.
 
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
+## History note
 
-The user ID is stable for the same user on the same Site and different across Sites. Email and name are intended for display or contact purposes.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
-```
-
-## Optional Dispatch-Owned ChatGPT Sign-In
-
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
-
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
-
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
-
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
-
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
-
-## Useful Commands
-
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
-
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+The app's git history starts before this restructure, when the app was the repo
+root. Use `git log --follow <path>` to trace a file across the move into
+`joe-gym-daily-nutrition/`.
