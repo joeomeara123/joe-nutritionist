@@ -39,8 +39,10 @@ const ITEM_SCHEMA = {
 function foodCatalogue() {
   return FOODS.map((food) => {
     const basis = food.basis === "portion" ? `per ${food.portionGrams}g ${food.portionLabel}` : "per 100g";
+    // A 100g-basis food can still have a serving size; the model needs it to use `portions`.
+    const serving = food.basis === "100g" && food.portionGrams ? `, 1 ${food.portionLabel} = ${food.portionGrams}g` : "";
     const raw = food.rawYield ? `, cooked basis (raw x${food.rawYield})` : "";
-    return `- ${food.name} [${food.aliases[0]}] ${basis}${raw}: ${food.calories}kcal ${food.protein}P ${food.carbs}C ${food.fat}F ${food.fibre}fib`;
+    return `- ${food.name} [${food.aliases[0]}] ${basis}${serving}${raw}: ${food.calories}kcal ${food.protein}P ${food.carbs}C ${food.fat}F ${food.fibre}fib`;
   }).join("\n");
 }
 

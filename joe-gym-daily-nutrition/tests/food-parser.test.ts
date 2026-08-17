@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 const parserModule = await import("../lib/food-parser").catch(() => ({}));
 type ParseResult = {
-  items: Array<{ id: string; display: string; grams: number; calories: number; protein: number; fat: number; fibre: number }>;
+  items: Array<{ id: string; display: string; grams: number; calories: number; protein: number; carbs: number; fat: number; fibre: number; assumed?: boolean }>;
   unknown: string[];
 };
 const parseFood = "parseFood" in parserModule
@@ -113,5 +113,119 @@ describe("raw weights convert to the cooked basis instead of failing quietly", (
     const result = parseFood("308g cooked chicken thighs");
 
     expect(result.items[0].grams).toBeCloseTo(308, 0);
+  });
+
+  test("treats 'uncooked' as raw, not as an unqualified weight", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const result = parseFood("428g uncooked chicken thighs");
+
+    // "uncooked" contains "cooked", so a naive alternation matched neither and the
+    // whole gram match failed, falling back to one 64g thigh.
+    expect(result.items[0].grams).toBeCloseTo(308.2, 1);
+  });
+});
+
+describe("digits count as counts", () => {
+  test("multiplies a numeral by the portion, as the number words already did", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const digits = parseFood("3 chicken thighs");
+    const words = parseFood("three chicken thighs");
+
+    expect(digits.items[0].grams).toBeCloseTo(192, 0);
+    expect(digits.items[0].grams).toBeCloseTo(words.items[0].grams, 1);
+  });
+});
+
+describe("a weight in brackets is still a weight", () => {
+  test("reads the bracketed weight after the food and prefers it over the count", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const result = parseFood("3 chicken thighs (392g uncooked)");
+
+    // The stated weight wins: 392g raw x 0.72 = 282.24g cooked, not 3 x 64g.
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].grams).toBeCloseTo(282.2, 1);
+    expect(result.items[0].protein).toBeCloseTo(70, 0);
+    expect(result.unknown).toHaveLength(0);
+  });
+});
+
+describe("spoons are a quantity", () => {
+  test("prices teaspoons of pesto instead of defaulting to 100g", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const result = parseFood("2 teaspoons of pesto");
+
+    expect(result.items[0].grams).toBeCloseTo(10, 1);
+    expect(result.items[0].fat).toBeCloseTo(4.6, 1);
+  });
+
+  test("uses the food's own tablespoon weight where it has one", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const result = parseFood("2 tbsp olive oil");
+
+    // Olive oil stores a 13.5g tbsp, so this must not use a generic 15g.
+    expect(result.items[0].grams).toBeCloseTo(27, 1);
+  });
+});
+
+describe("an unstated quantity is a serving, not 100g", () => {
+  test("gives bare pesto a tablespoon rather than a third of a jar", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const result = parseFood("chicken thighs with pesto");
+    const pesto = result.items.find((item) => item.id === "pesto");
+
+    expect(pesto?.grams).toBeCloseTo(15, 1);
+    expect(pesto?.assumed).toBe(true);
+  });
+
+  test("does not flag a quantity Joe actually stated", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    expect(parseFood("30g pesto").items[0].assumed).toBeUndefined();
+    expect(parseFood("2 tsp pesto").items[0].assumed).toBeUndefined();
+    expect(parseFood("three chicken thighs").items[0].assumed).toBeUndefined();
+  });
+});
+
+describe("the whole sentence Joe actually typed", () => {
+  const line = "I just had 3 chicken thighs (392g uncooked) and 100g of uncooked pasta (225 cooked) and 2 teaspoons of pesto";
+
+  test("reads every quantity he gave", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const result = parseFood(line);
+
+    expect(result.items.map((item) => item.id)).toEqual(["chicken-thigh", "pasta", "pesto"]);
+    expect(result.items[0].grams).toBeCloseTo(282.2, 1); // 392g raw, converted
+    expect(result.items[1].grams).toBeCloseTo(100, 1); // dry pasta is already the stored basis
+    expect(result.items[2].grams).toBeCloseTo(10, 1); // 2 tsp
+    expect(result.unknown).toHaveLength(0);
+  });
+
+  test("totals the meal correctly", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const items = parseFood(line).items;
+    const sum = (key: "calories" | "protein" | "fat" | "fibre") => items.reduce((total, item) => total + item[key], 0);
+
+    // Was 922 kcal / 32.6g protein / 52.5g fat: one 64g thigh and 100g of pesto.
+    expect(sum("calories")).toBeCloseTo(878.7, 0);
+    expect(sum("protein")).toBeCloseTo(82.5, 1);
+    expect(sum("fat")).toBeCloseTo(27.6, 1);
+    expect(sum("fibre")).toBeCloseTo(3.6, 1);
   });
 });

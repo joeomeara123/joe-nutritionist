@@ -34,3 +34,6 @@ repo map.
 - 2026-08-17: Model passed `grams: 64` for "three thighs" because the tool made it multiply 3x64 -> `MealItem.portions` takes the count and the tool does the multiplication; verifying tool *outputs* does not catch a bad tool *input*.
 - 2026-08-17: `.env.local` present and valid but the key still missing -> either a stray parent lockfile moved Next's project root (pin `outputFileTracingRoot`/`turbopack.root`), or an empty exported `ANTHROPIC_API_KEY` shadowed it (dotenv never overrides a defined var; use `env -u`).
 - 2026-08-17: Chat replies rendered as plain text, so markdown from the model showed literal `**asterisks**` -> the system prompt asks for plain prose rather than adding a renderer.
+- 2026-08-17: Numerals were not counts and bracketed weights were invisible, so "3 chicken thighs (392g uncooked)" logged one 64g thigh -> `COUNT` accepts digits and `gramsAfter` skips leading brackets.
+- 2026-08-17: `(cooked|raw)` could not match "uncooked", and the failure discarded the whole stated weight rather than just the basis -> alternation is `uncooked|cooked|raw`, longest first, because `cooked` is a prefix of `uncooked`.
+- 2026-08-17: "2 teaspoons of pesto" fell through to the 100g default, inventing 455 kcal -> spoons are a quantity, condiments carry a serving size, and any quantity the parser supplies is flagged `assumed` and shown in amber.

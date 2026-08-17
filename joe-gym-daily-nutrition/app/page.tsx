@@ -311,7 +311,7 @@ export default function Home() {
         {parseError && <p className="parse-error" role="alert">{parseError}</p>}
         {previewItems.length > 0 && (
           <div className="preview-panel">
-            <div className="preview-foods">{previewItems.map((item) => <span key={item.id}>{item.name}<strong>{item.display}</strong></span>)}</div>
+            <div className="preview-foods">{previewItems.map((item) => <span key={item.id} className={item.assumed ? "assumed" : ""}>{item.name}<strong>{item.display}</strong>{item.assumed && <em>assumed — say the amount</em>}</span>)}</div>
             <div className="preview-totals"><span><strong>{round(previewMacros.calories)}</strong> kcal</span><span><strong>{round(previewMacros.protein, 1)}g</strong> protein</span><span><strong>{round(previewMacros.carbs, 1)}g</strong> carbs</span><span><strong>{round(previewMacros.fat, 1)}g</strong> fat</span><span><strong>{round(previewMacros.fibre, 1)}g</strong> fibre</span></div>
             <div className="preview-actions"><button type="button" className="ghost-button" onClick={() => setPreviewItems([])}>Change it</button><button type="button" className="log-button" onClick={logMeal}>Log this {mealName.toLowerCase()}</button></div>
           </div>

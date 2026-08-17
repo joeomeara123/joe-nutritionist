@@ -4,7 +4,8 @@ export type Macros = { calories: number; protein: number; carbs: number; fat: nu
  * raw weighing (how Joe actually weighs meat) converts instead of being priced as cooked.
  */
 export type Food = Macros & { id: string; name: string; aliases: string[]; basis: "100g" | "portion"; portionGrams?: number; portionLabel?: string; rawYield?: number };
-export type ParsedFood = Macros & { id: string; name: string; grams: number; display: string; fromRawGrams?: number };
+/** `assumed` marks a quantity the parser supplied because Joe did not state one. */
+export type ParsedFood = Macros & { id: string; name: string; grams: number; display: string; fromRawGrams?: number; assumed?: boolean };
 
 export const FOODS: Food[] = [
   { id: "chicken-thigh", name: "Cooked chicken thighs", aliases: ["chicken thighs", "chicken thigh", "cooked chicken", "chicken"], basis: "100g", portionGrams: 64, portionLabel: "thigh", rawYield: 0.72, calories: 168, protein: 24.8, carbs: 0, fat: 7.6, fibre: 0 },
@@ -18,7 +19,9 @@ export const FOODS: Food[] = [
   { id: "peppers", name: "Sweet peppers", aliases: ["sweet peppers", "bell peppers", "pepper", "peppers"], basis: "100g", calories: 27, protein: 1, carbs: 5.3, fat: 0.3, fibre: 1.8 },
   { id: "avocado", name: "Avocado", aliases: ["avocado"], basis: "100g", calories: 160, protein: 2, carbs: 8.5, fat: 14.7, fibre: 6.7 },
   { id: "feta", name: "Feta", aliases: ["feta cheese", "feta"], basis: "100g", calories: 276, protein: 14.2, carbs: 0.8, fat: 23, fibre: 0 },
-  { id: "pesto", name: "Green pesto", aliases: ["green pesto", "pesto"], basis: "100g", calories: 455, protein: 4.7, carbs: 5.6, fat: 46.1, fibre: 1 },
+  // Condiments carry a portion size so an unquantified mention costs a spoonful rather than
+  // the 100g fallback — 100g of pesto is 455 kcal, which quietly wrecks a day's numbers.
+  { id: "pesto", name: "Green pesto", aliases: ["green pesto", "pesto"], basis: "100g", portionGrams: 15, portionLabel: "tbsp", calories: 455, protein: 4.7, carbs: 5.6, fat: 46.1, fibre: 1 },
   { id: "chips", name: "Oven chips", aliases: ["gastro chips", "oven chips", "chips"], basis: "100g", calories: 236, protein: 3.3, carbs: 31.6, fat: 10.4, fibre: 3.3 },
   { id: "nandos", name: "Nando's PERi-PERi sauce", aliases: ["nando's hot sauce", "nandos hot sauce", "nando sauce", "nandos sauce", "peri-peri sauce", "peri peri sauce"], basis: "portion", portionGrams: 20, portionLabel: "serving", calories: 9, protein: 0.2, carbs: 0.5, fat: 0.5, fibre: 0.3 },
   { id: "protein-yogurt", name: "High-protein yoghurt", aliases: ["high protein yoghurt", "high protein yogurt", "protein yoghurt", "protein yogurt"], basis: "100g", calories: 73, protein: 10, carbs: 5.1, fat: 0.8, fibre: 0 },
@@ -33,6 +36,25 @@ export const FOODS: Food[] = [
 
 const numberWords: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4 };
 const round = (value: number, places = 0) => Number(value.toFixed(places));
+
+/** Numerals count as much as number words — Joe types "3 chicken thighs" as often as "three". */
+const COUNT = "\\d+(?:\\.\\d+)?|a|an|one|two|three|four";
+const countOf = (token: string) => (token in numberWords ? numberWords[token] : Number(token));
+
+/** "cooked" is a prefix of "uncooked", so the longer word has to be tried first. */
+const BASIS = "uncooked|cooked|raw";
+const isRaw = (basis?: string) => basis === "raw" || basis === "uncooked";
+
+const GENERIC_TBSP_GRAMS = 15;
+
+/**
+ * A spoon is a real measurement to Joe and a silent 100g fallback otherwise. Foods that store
+ * their own tablespoon (olive oil is 13.5g, not 15g) use it; a teaspoon is a third of one.
+ */
+function spoonGrams(food: Food, unit: string): number {
+  const tbsp = food.portionLabel === "tbsp" && food.portionGrams ? food.portionGrams : GENERIC_TBSP_GRAMS;
+  return unit.startsWith("tsp") || unit.startsWith("teaspoon") ? tbsp / 3 : tbsp;
+}
 
 export function scaled(food: Food, grams: number): ParsedFood {
   const factor = food.basis === "100g" ? grams / 100 : grams / (food.portionGrams || grams);
@@ -57,7 +79,7 @@ export function scaled(food: Food, grams: number): ParsedFood {
 // Words that carry no food identity, so a leftover fragment made only of these is not an
 // unrecognised food — it is the grammar around one we already matched.
 const FILLER =
-  /\b(a|an|one|two|three|four|and|with|plus|of|some|the|my|then|also|served|side|sides|bowl|plate|portion|portions|cooked|raw|weighed|about|approx|approximately|g|grams?|grammes?|kg|ml|tbsp|tsp|spoon|spoons?|large|small|medium|extra|more|little|bit)\b/g;
+  /\b(a|an|one|two|three|four|and|with|plus|of|some|the|my|then|also|served|side|sides|bowl|plate|portion|portions|cooked|uncooked|raw|dry|weighed|just|had|i|about|approx|approximately|g|grams?|grammes?|kg|ml|tbsps?|tsps?|tablespoons?|teaspoons?|spoon|spoons?|large|small|medium|extra|more|little|bit)\b/g;
 
 /**
  * Matches an alias only on word boundaries. `includes()` would match "oil" inside "boiled"
@@ -95,26 +117,41 @@ export function parseFood(text: string): { items: ParsedFood[]; unknown: string[
 
     const aliasEnd = aliasIndex + alias.length;
     const before = normalised.slice(Math.max(0, aliasIndex - 42), aliasIndex);
-    const after = normalised.slice(aliasEnd, aliasEnd + 28);
-    // `raw` is captured, not just tolerated: a raw weighing of a cooked-basis food has to be
-    // converted, and previously the missing alternative made the whole gram match fail.
-    const gramsBefore = before.match(/(\d+(?:\.\d+)?)\s*(?:g|grams?|grammes?)\s*(?:of\s*)?(?:(cooked|raw)\s*)?$/);
-    const gramsAfter = after.match(/^\s*(\d+(?:\.\d+)?)\s*(?:g|grams?|grammes?)/);
-    const wordBefore = before.match(/(?:^|\s)(a|an|one|two|three|four)\s*(?:(?:cooked|raw)\s*)?$/);
-    const count = wordBefore ? numberWords[wordBefore[1]] : 1;
+    const after = normalised.slice(aliasEnd, aliasEnd + 32);
+    // The basis word is captured, not just tolerated: a raw weighing of a cooked-basis food
+    // has to be converted, and a missing alternative makes the whole gram match fail.
+    const gramsBefore = before.match(new RegExp(`(\\d+(?:\\.\\d+)?)\\s*(?:g|grams?|grammes?)\\s*(?:of\\s*)?(?:(${BASIS})\\s*)?$`));
+    // Joe writes the true weight in brackets after a count: "3 chicken thighs (392g uncooked)".
+    const gramsAfter = after.match(new RegExp(`^[\\s,(]*(\\d+(?:\\.\\d+)?)\\s*(?:g|grams?|grammes?)\\s*(?:(${BASIS})\\s*)?\\)?`));
+    const spoonBefore = before.match(new RegExp(`(?:^|\\s)(${COUNT})\\s*(tsps?|teaspoons?|tbsps?|tablespoons?)\\s*(?:of\\s*)?$`));
+    const wordBefore = before.match(new RegExp(`(?:^|\\s)(${COUNT})\\s*(?:(?:${BASIS})\\s*)?$`));
+    const count = wordBefore ? countOf(wordBefore[1]) : 1;
 
-    let grams = gramsBefore ? Number(gramsBefore[1]) : gramsAfter ? Number(gramsAfter[1]) : food.portionGrams || 100;
-    if (!gramsBefore && !gramsAfter && food.portionGrams) grams *= count;
+    // Priority: a weight Joe stated, then a spoon measure, then a count of portions. Only if
+    // he gave none of those does the parser supply a quantity — and it says so.
+    const stated = gramsBefore ?? gramsAfter;
+    let grams: number;
+    let assumed = false;
+    if (stated) grams = Number(stated[1]);
+    else if (spoonBefore) grams = countOf(spoonBefore[1]) * spoonGrams(food, spoonBefore[2]);
+    else if (food.portionGrams) grams = food.portionGrams * count;
+    else grams = 100;
+    if (!stated && !spoonBefore && !wordBefore) assumed = true;
 
-    const weighedRaw = gramsBefore?.[2] === "raw" || /\braw\s*$/.test(before);
+    const weighedRaw = isRaw(stated?.[2]) || new RegExp(`\\b(raw|uncooked)\\s*$`).test(before);
     const fromRawGrams = weighedRaw && food.rawYield ? grams : undefined;
     if (fromRawGrams !== undefined) grams = grams * food.rawYield!;
 
-    found.push({ ...scaled(food, grams), ...(fromRawGrams === undefined ? {} : { fromRawGrams }) });
+    found.push({
+      ...scaled(food, grams),
+      ...(fromRawGrams === undefined ? {} : { fromRawGrams }),
+      ...(assumed ? { assumed: true } : {}),
+    });
     occupied.push([aliasIndex, aliasEnd]);
 
     blank(aliasIndex, aliasEnd);
     if (gramsBefore) blank(aliasIndex - gramsBefore[0].length, aliasIndex);
+    if (spoonBefore) blank(aliasIndex - spoonBefore[0].length, aliasIndex);
     if (wordBefore) blank(aliasIndex - wordBefore[0].length, aliasIndex);
     if (gramsAfter) blank(aliasEnd, aliasEnd + gramsAfter[0].length);
   }

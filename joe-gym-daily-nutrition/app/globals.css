@@ -129,6 +129,10 @@ main { width:min(1180px,calc(100% - 40px)); margin:0 auto; padding:24px 0 56px; 
 .preview-foods { display:flex; flex-wrap:wrap; gap:6px; }
 .preview-foods span { padding:7px 9px; border:1px solid var(--line); border-radius:9px; background:white; font-size:11px; }
 .preview-foods strong { display:block; margin-top:2px; font-size:10px; }
+/* A quantity the parser supplied rather than one Joe stated — flagged so a guessed
+   spoonful never passes for a weighing. */
+.preview-foods span.assumed { border-color:#d8c48a; background:#fdf8ea; }
+.preview-foods em { display:block; margin-top:1px; color:#8a7434; font-size:9px; font-style:normal; }
 .preview-totals { display:grid; grid-template-columns:repeat(3,auto); gap:4px 12px; color:var(--muted); font-size:9px; }
 .preview-totals strong { color:var(--ink); font-size:13px; }
 .preview-actions { display:flex; gap:6px; }
