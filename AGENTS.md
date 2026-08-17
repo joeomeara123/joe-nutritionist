@@ -25,3 +25,9 @@ repo map.
 - 2026-08-17: Per-100g rice values understated a 130g pot -> store nutrition basis and scale every macro to the full portion.
 - 2026-08-17: Owner-only Sites deployment rejected the in-app browser session -> verify browser identity separately from Codex ownership before changing access mode.
 - 2026-08-17: App and knowledge docs lived in two separate git repos -> single repo rooted at `JOM GYM`, app under `joe-gym-daily-nutrition/`, all docs under `docs/`; use `git log --follow` to trace pre-restructure history.
+- 2026-08-17: Unmatched foods were dropped silently whenever anything else on the line matched -> parser blanks accounted-for spans and returns the remainder as `unknown`; oil and butter added to `FOODS`.
+- 2026-08-17: "428g raw chicken thighs" logged one 64g thigh because the gram regex only tolerated `cooked` -> capture `cooked|raw` and convert raw weighings through `Food.rawYield`.
+- 2026-08-17: Short aliases matched inside longer words (`oil` in `boiled`, `butter` in `peanut butter`) -> alias matching is word-boundary based and cooking fats are ordered last in `FOODS`.
+- 2026-08-17: Food shorthand ranked by alias length resolved "rice" to `rice cakes` -> prefer the alias whose last word is the query (head noun), length only as tie-breaker.
+- 2026-08-17: `npm test` reported a false failure and silently skipped a third of the suite -> Node tests need `--experimental-strip-types`; the Bun-authored tests need their own `bun test` script.
+- 2026-08-17: Chat macro figures must never come from the model -> all arithmetic lives in `lib/nutrition-tools.ts` and reaches Claude only as tool results; the system prompt forbids unsourced numbers.

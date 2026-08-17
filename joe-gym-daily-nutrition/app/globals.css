@@ -210,3 +210,32 @@ footer span { font-family:var(--font-geist-mono),monospace; }
   .meal-numbers span:nth-child(2) { display:none; }
   footer { flex-direction:column; }
 }
+
+/* ---- Ask (AI nutritionist chat) ---- */
+.chat-card { margin-top:48px; padding:30px 32px; border:1px solid var(--ink); border-radius:25px; background:var(--surface); box-shadow:0 22px 54px #2730240d; }
+.chat-card h2 { margin:4px 0 0; font-size:25px; font-weight:690; letter-spacing:-.045em; }
+.chat-blurb { max-width:62ch; margin:8px 0 0; color:var(--muted); font-size:12px; }
+.chat-log { margin-top:20px; max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; }
+.chat-prompts { display:flex; flex-wrap:wrap; gap:8px; }
+.chat-prompt { padding:10px 14px; border:1px solid var(--line); border-radius:999px; color:var(--ink); background:white; font-family:inherit; font-size:12px; text-align:left; cursor:pointer; }
+.chat-prompt:hover:not(:disabled) { border-color:var(--ink); }
+.chat-prompt:disabled { opacity:.5; cursor:default; }
+.chat-bubble { max-width:82%; padding:13px 16px; border-radius:16px; font-size:13.5px; line-height:1.55; white-space:pre-wrap; }
+.chat-bubble.user { align-self:flex-end; color:white; background:var(--ink); border-bottom-right-radius:5px; }
+.chat-bubble.assistant { align-self:flex-start; border:1px solid var(--line); background:white; border-bottom-left-radius:5px; }
+.chat-activity { align-self:flex-start; color:var(--muted); font-family:var(--font-geist-mono),monospace; font-size:10px; letter-spacing:.02em; }
+.chat-error { padding:11px 14px; border:1px solid var(--red,#ff3b30); border-radius:12px; color:var(--red,#ff3b30); background:white; font-size:12px; }
+.chat-form { margin-top:18px; display:flex; gap:10px; }
+.chat-form input { flex:1; min-height:48px; padding:0 18px; border:1px solid var(--line); border-radius:999px; color:var(--ink); background:white; font-family:inherit; font-size:13px; }
+.chat-form input:focus { outline:none; border-color:var(--ink); }
+.chat-send { min-width:82px; border:0; border-radius:999px; color:white; background:var(--ink); font-family:inherit; font-size:12px; font-weight:650; cursor:pointer; }
+.chat-send:disabled { opacity:.4; cursor:default; }
+@media (max-width:720px) {
+  .chat-card { padding:22px 18px; }
+  .chat-bubble { max-width:94%; }
+}
+.date-button.import-button { margin-left:auto; cursor:pointer; }
+.date-button.import-button input { display:none; }
+.date-button.import-button::after { content:"↑"; display:grid; place-items:center; width:28px; height:28px; border:1px solid var(--line); border-radius:999px; background:var(--surface); font-size:12px; }
+.date-button.import-button:hover::after { border-color:var(--ink); }
+.date-button:not(.import-button) { margin-left:0; }

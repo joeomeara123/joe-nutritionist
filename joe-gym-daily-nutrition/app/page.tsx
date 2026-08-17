@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { FOODS, parseFood, scaled, type Macros, type ParsedFood } from "@/lib/food-parser";
 import { recommendDay, type Suggestion } from "@/lib/recommendations";
+import Chat from "./chat";
 
 type Meal = { id: string; name: string; text: string; time: string; items: ParsedFood[]; macros: Macros };
 type Diary = Record<string, Meal[]>;
@@ -137,6 +138,41 @@ export default function Home() {
     setPreviewItems([]);
   }
 
+  /** One-time migration path off the old Codex deployment. The diary only ever lived in
+   *  localStorage, so moving origin loses it unless Joe carries the JSON across. Existing days
+   *  win over imported ones, so re-importing can never clobber something logged here. */
+  async function importDiary(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text()) as Diary;
+      const days = Object.keys(parsed);
+      if (!days.length || !Array.isArray(parsed[days[0]])) throw new Error("shape");
+      setDiary((current) => ({ ...parsed, ...current }));
+      setParseError(`Imported ${days.length} day${days.length === 1 ? "" : "s"} of history.`);
+    } catch {
+      setParseError("That file isn’t a diary export. Run copy(localStorage.getItem('joe-gym-diary-v1')) on the old site and save the result as .json.");
+    }
+  }
+
+  /** The chat solves the portion; the diary still parses and prices it, so a logged meal is
+   *  identical whether it came from the form or the conversation. */
+  function logMealFromChat(name: string, text: string) {
+    const parsed = parseFood(text);
+    if (!parsed.items.length) { setParseError(`I couldn’t log “${text}” — none of those foods are stored yet.`); return; }
+    const now = new Date();
+    const meal: Meal = {
+      id: `${Date.now()}`,
+      name,
+      text,
+      time: now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      items: parsed.items,
+      macros: total(parsed.items),
+    };
+    setDiary((current) => ({ ...current, [selectedDate]: [...(current[selectedDate] || []), meal] }));
+  }
+
   function removeMeal(id: string) {
     setDiary((current) => ({ ...current, [selectedDate]: (current[selectedDate] || []).filter((meal) => meal.id !== id) }));
   }
@@ -178,6 +214,9 @@ export default function Home() {
       <header className="topbar">
         <div className="brand-mark">JG</div>
         <div><p className="eyebrow">Joe&apos;s daily nutrition</p><h1>{longDate(selectedDate)}</h1></div>
+        <label className="date-button import-button" title="Import a diary exported from the old Codex-hosted site">Import
+          <input type="file" accept="application/json,.json" onChange={importDiary} />
+        </label>
         <label className="date-button">Day<input type="date" value={selectedDate} max={today} onChange={(event) => { setSelectedDate(event.target.value); setPreviewItems([]); }} /></label>
       </header>
 
@@ -249,6 +288,8 @@ export default function Home() {
           <p className="recommendation-note">{activeRecommendation.note}</p>
         </section>
       )}
+
+      <Chat day={{ consumed, mealCount: properMealCount, hour: new Date().getHours() }} onLogMeal={logMealFromChat} />
 
       <section className="macro-section">
         <div className="section-heading"><div><p className="eyebrow">What remains</p><h2>Today&apos;s targets</h2></div><p className="muted">Live after every meal</p></div>

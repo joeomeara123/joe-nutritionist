@@ -1,14 +1,42 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import test from "node:test";
+import test, { after } from "node:test";
+
+// Boot the real production server once and reuse it. The previous helper imported the
+// Cloudflare Worker bundle directly; Next.js has no equivalent single-entry artifact, so we
+// exercise the server the same way a browser would.
+const PORT = 3100 + (process.pid % 400);
+let server;
+let booted;
+
+function startServer() {
+  booted ??= (async () => {
+    server = spawn("npx", ["next", "start", "-p", String(PORT)], {
+      cwd: new URL("..", import.meta.url).pathname,
+      stdio: "ignore",
+    });
+
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      try {
+        const probe = await fetch(`http://localhost:${PORT}/`, { headers: { accept: "text/html" } });
+        if (probe.ok) return;
+      } catch {
+        // not listening yet
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    throw new Error(`next start did not come up on port ${PORT}`);
+  })();
+  return booted;
+}
+
+after(() => server?.kill("SIGTERM"));
 
 async function render() {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-  return worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), {
-    ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
-  }, { waitUntil() {}, passThroughOnException() {} });
+  await startServer();
+  return fetch(`http://localhost:${PORT}/`, { headers: { accept: "text/html" } });
 }
 
 test("renders Joe's nutrition dashboard shell", async () => {

@@ -201,7 +201,15 @@ const SNACKS: Suggestion[] = [
 
 const totalSuggestions = (items: Suggestion[]) => items.reduce((sum, item) => add(sum, item.macros), ZERO);
 
-function scoreProjection(value: MacroTotals) {
+export const DAILY_TARGETS: MacroTotals = TARGETS;
+
+/**
+ * How far a projected end-of-day total sits from Joe's targets. Deficits and excesses are
+ * weighted differently per macro (protein deficit hurts most, calorie/carb/fat excess next).
+ * Exported so portion solving can minimise the same cost the meal recommender already uses —
+ * one definition of "a good day", not two.
+ */
+export function scoreProjection(value: MacroTotals) {
   const deficit = (key: keyof MacroTotals) => Math.max(0, TARGETS[key] - value[key]);
   const excess = (key: keyof MacroTotals) => Math.max(0, value[key] - TARGETS[key]);
   return (
