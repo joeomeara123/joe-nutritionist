@@ -18,7 +18,7 @@ export type Macros = { calories: number; protein: number; carbs: number; fat: nu
  */
 export type FoodSource = { product: string; url: string; basis: string };
 export type CookState = "cooked" | "uncooked";
-export type Food = Macros & { id: string; name: string; aliases: string[]; basis: "100g" | "portion"; portionGrams?: number; portionLabel?: string; weighedAs?: CookState; cookedRatio?: number; source?: FoodSource };
+export type Food = Macros & { id: string; name: string; aliases: string[]; basis: "100g" | "portion"; portionGrams?: number; portionLabel?: string; portionVaries?: boolean; weighedAs?: CookState; cookedRatio?: number; source?: FoodSource };
 
 /**
  * Convert a weight Joe took in one state into the state the food's macros are stored in.
@@ -29,8 +29,19 @@ export function toStoredGrams(food: Food, grams: number, weighedAs?: CookState):
   if (!weighedAs || !food.weighedAs || !food.cookedRatio || weighedAs === food.weighedAs) return grams;
   return food.weighedAs === "cooked" ? grams * food.cookedRatio : grams / food.cookedRatio;
 }
-/** `assumed` marks a quantity the parser supplied because Joe did not state one. */
-export type ParsedFood = Macros & { id: string; name: string; grams: number; display: string; weighedGrams?: number; weighedAs?: CookState; assumed?: boolean };
+/**
+ * `assumed` marks a gram figure the app supplied rather than read off what Joe said.
+ *
+ * - `"quantity"` — he named the food and no amount at all.
+ * - `"portionSize"` — he counted items, but what one item weighs is a guess. Counting three
+ *   thighs states a count, not a weight; Sainsbury's own pack notes "thigh fillet sizes also
+ *   vary" and lists no serving count, so there is nothing to source it from.
+ *
+ * Both must be visible. An invented number that renders like a measured one is indistinguishable
+ * from a correct answer at exactly the moment it is wrong.
+ */
+export type Assumption = "quantity" | "portionSize";
+export type ParsedFood = Macros & { id: string; name: string; grams: number; display: string; weighedGrams?: number; weighedAs?: CookState; assumed?: Assumption };
 
 const sainsburys = (product: string, slug: string, basis: string): FoodSource => ({
   product,
@@ -51,7 +62,10 @@ const sainsburys = (product: string, slug: string, basis: string): FoodSource =>
  * sells the product but publishes no nutrition table for it. They are listed in README.md.
  */
 export const FOODS: Food[] = [
-  { id: "chicken-thigh", name: "Cooked chicken thighs", aliases: ["chicken thighs", "chicken thigh", "cooked chicken", "chicken"], basis: "100g", portionGrams: 64, portionLabel: "thigh", weighedAs: "cooked", cookedRatio: 0.72, calories: 168, protein: 24.8, carbs: 0, fat: 7.6, fibre: 0,
+  // 64g a thigh is a guess, not a label figure: the Sainsbury's pack says "thigh fillet sizes
+  // also vary" and lists no serving count. Counting thighs therefore states a count, not a
+  // weight, and `portionVaries` makes the app say so instead of implying it was measured.
+  { id: "chicken-thigh", name: "Cooked chicken thighs", aliases: ["chicken thighs", "chicken thigh", "cooked chicken", "chicken"], basis: "100g", portionGrams: 64, portionLabel: "thigh", portionVaries: true, weighedAs: "cooked", cookedRatio: 0.72, calories: 168, protein: 24.8, carbs: 0, fat: 7.6, fibre: 0,
     source: sainsburys("Sainsbury's 640g British Fresh Skinless & Boneless Chicken Thigh Fillets", "sainsburys-640g-british-fresh-skinless-boneless-chicken-thigh-fillets", "per 100g, cooked as per instructions") },
   { id: "mince", name: "Cooked 5% beef mince", aliases: ["5% mince", "five percent mince", "beef mince", "mince meat", "mince"], basis: "100g", weighedAs: "cooked", cookedRatio: 0.7, calories: 167, protein: 31, carbs: 0, fat: 4.7, fibre: 0,
     source: sainsburys("Sainsbury's Organic British Beef Mince 5% Fat 500g", "sainsburys-organic-british-beef-mince-5-fat-500g", "per 100g; the label omits the basis, but 31g protein is a cooked figure") },
@@ -212,12 +226,14 @@ export function parseFood(text: string): { items: ParsedFood[]; unknown: string[
     const spoon = spoonBefore ?? spoonAfter;
 
     let grams: number;
-    let assumed = false;
+    let assumed: Assumption | undefined;
     if (stated) grams = stated.grams;
     else if (spoon) grams = countOf(spoon[1]) * spoonGrams(food, spoon[2]);
     else if (food.portionGrams) grams = food.portionGrams * count;
     else grams = 100;
-    if (!stated && !spoon && !wordBefore) assumed = true;
+    // A count is a stated quantity, but for a food whose pieces vary the *weight* of one is
+    // still the app's guess, and that is where "3 thighs" quietly becomes a number.
+    if (!stated && !spoon) assumed = wordBefore ? (food.portionVaries ? "portionSize" : undefined) : "quantity";
 
     const weighedAs = cookStateOf(stated?.basis) ?? cookStateOf(before.match(new RegExp(`\\b(${BASIS})\\s*$`))?.[1]);
     const storedGrams = toStoredGrams(food, grams, weighedAs);
@@ -226,7 +242,7 @@ export function parseFood(text: string): { items: ParsedFood[]; unknown: string[
     found.push({
       ...scaled(food, storedGrams),
       ...(converted ? { weighedGrams: grams, weighedAs } : {}),
-      ...(assumed ? { assumed: true } : {}),
+      ...(assumed ? { assumed } : {}),
     });
     occupied.push([aliasIndex, aliasEnd]);
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 const parserModule = await import("../lib/food-parser").catch(() => ({}));
 type ParseResult = {
-  items: Array<{ id: string; display: string; grams: number; calories: number; protein: number; carbs: number; fat: number; fibre: number; assumed?: boolean }>;
+  items: Array<{ id: string; display: string; grams: number; calories: number; protein: number; carbs: number; fat: number; fibre: number; weighedGrams?: number; weighedAs?: string; assumed?: "quantity" | "portionSize" }>;
   unknown: string[];
 };
 const parseFood = "parseFood" in parserModule
@@ -210,7 +210,7 @@ describe("a weight belongs to its own food", () => {
 
     // The trap: scanning forward past the comma made the chicken 100g — the pasta's weight.
     expect(chicken?.grams).toBeCloseTo(64, 1);
-    expect(chicken?.assumed).toBe(true);
+    expect(chicken?.assumed).toBe("quantity");
     expect(result.items.find((item) => item.id === "pasta")?.grams).toBeCloseTo(100, 1);
   });
 });
@@ -256,7 +256,7 @@ describe("an unstated quantity is a serving, not 100g", () => {
     const pesto = result.items.find((item) => item.id === "pesto");
 
     expect(pesto?.grams).toBeCloseTo(15, 1);
-    expect(pesto?.assumed).toBe(true);
+    expect(pesto?.assumed).toBe("quantity");
   });
 
   test("does not flag a quantity Joe actually stated", () => {
@@ -265,7 +265,8 @@ describe("an unstated quantity is a serving, not 100g", () => {
 
     expect(parseFood("30g pesto").items[0].assumed).toBeUndefined();
     expect(parseFood("2 tsp pesto").items[0].assumed).toBeUndefined();
-    expect(parseFood("three chicken thighs").items[0].assumed).toBeUndefined();
+    // A count is stated, but what one thigh weighs is not — that is a different assumption.
+    expect(parseFood("three chicken thighs").items[0].assumed).toBe("portionSize");
   });
 });
 
@@ -327,5 +328,35 @@ describe("the whole sentence Joe actually typed", () => {
     expect(sum("protein")).toBeCloseTo(84.4, 1);
     expect(sum("fat")).toBeCloseTo(27.5, 1);
     expect(sum("fibre")).toBeCloseTo(3.1, 1);
+  });
+});
+
+describe("a counted portion is a count, not a weight", () => {
+  test("flags the per-item weight it had to assume", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const result = parseFood("3 chicken thighs");
+
+    // 192g is 3 x an assumed 64g thigh. Sainsbury's pack says fillet sizes vary and gives no
+    // serving count, so there is nothing to source it from — it must not read as measured.
+    expect(result.items[0].grams).toBeCloseTo(192, 0);
+    expect(result.items[0].assumed).toBe("portionSize");
+  });
+
+  test("does not flag a counted pack item, whose portion is the unit itself", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    // A Veetee pot is a pot and a bagel is a bagel; only variable-size foods carry the flag.
+    expect(parseFood("one Veetee sticky rice pot").items[0].assumed).toBeUndefined();
+    expect(parseFood("four beetroot veggie cakes").items[0].assumed).toBeUndefined();
+  });
+
+  test("a stated weight overrides the assumption entirely", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    expect(parseFood("3 chicken thighs (392g uncooked)").items[0].assumed).toBeUndefined();
   });
 });

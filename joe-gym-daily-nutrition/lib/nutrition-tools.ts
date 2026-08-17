@@ -7,7 +7,7 @@
  * a model that estimates macros produces confident, slightly-wrong grams, which is worse than
  * no answer at all.
  */
-import { FOODS, parseFood, scaled, toStoredGrams, type CookState, type Food, type Macros, type ParsedFood } from "./food-parser";
+import { FOODS, parseFood, scaled, toStoredGrams, type Assumption, type CookState, type Food, type Macros, type ParsedFood } from "./food-parser";
 import { DAILY_TARGETS, recommendDay, scoreProjection, type Suggestion } from "./recommendations";
 
 export type DayState = { consumed: Macros; mealCount: number; hour: number };
@@ -91,7 +91,18 @@ function resolveItem(item: MealItem): { parsed: ParsedFood; food: Food } | { unk
   const weighedAs = item.grams !== undefined ? item.weighedAs : undefined;
   const storedGrams = toStoredGrams(food, grams, weighedAs);
 
-  const parsed = { ...scaled(food, storedGrams), ...(storedGrams === grams ? {} : { weighedGrams: grams, weighedAs }) };
+  // Counting pieces of something whose pieces vary states a count, not a weight — the chat has
+  // to be able to say so rather than quoting the total as if it were measured.
+  const assumed: Assumption | undefined =
+    item.grams !== undefined ? undefined
+      : item.portions !== undefined ? (food.portionVaries ? "portionSize" : undefined)
+        : "quantity";
+
+  const parsed = {
+    ...scaled(food, storedGrams),
+    ...(storedGrams === grams ? {} : { weighedGrams: grams, weighedAs }),
+    ...(assumed ? { assumed } : {}),
+  };
   return { parsed, food };
 }
 

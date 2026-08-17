@@ -63,3 +63,18 @@ from a correct answer at exactly the moment it is wrong.
 `tests/food-parser.test.ts` covers each failure separately plus Joe's full sentence, asserting
 both the per-item grams and the meal totals. The old behaviour reproduced all five of the
 numbers on his screenshot exactly, which is how the diagnosis was confirmed before any edit.
+
+## Follow-up: a count is not a weight (2026-08-17)
+
+Joe asked why "3 chicken thighs" showed **192g** with no caveat, while pesto next to it was
+flagged. Fair: 192g is 3 × a stored 64g thigh, and that 64g is a guess inherited from the
+original build. The Sainsbury's pack itself says **"Thigh fillet sizes also vary"** and lists
+`n/a` servings, so there is nothing to source it from.
+
+The flag was only firing when *no* quantity was given at all. But counting pieces states a
+count, not a weight — the per-item weight is still the app's number. `assumed` is now
+`"quantity" | "portionSize"`, and foods whose pieces vary carry `portionVaries`. A Veetee pot
+or a bagel is not flagged: there the portion *is* the unit.
+
+The rule this settles: **flag the number the app supplied, not the field the user left blank.**
+Those are not the same thing, and the gap between them is where 192g looked measured.
