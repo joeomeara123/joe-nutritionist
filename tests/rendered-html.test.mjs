@@ -26,4 +26,13 @@ test("keeps Joe's targets and current Veetee pot values exact", async () => {
   assert.match(page, /portionGrams:\s*130[\s\S]*?calories:\s*198,\s*protein:\s*3,\s*carbs:\s*41\.2,\s*fat:\s*2\.3/);
   assert.match(page, /scaled\(FOODS\[0\],\s*192\)/);
   assert.match(page, /scaled\(FOODS\[4\],\s*130\)/);
+  assert.match(page, /Protein[\s\S]*?grams:\s*160,\s*calories:\s*640,\s*percent:\s*35\.6/);
+  assert.match(page, /Carbs[\s\S]*?grams:\s*155,\s*calories:\s*620,\s*percent:\s*34\.4/);
+  assert.match(page, /Fat[\s\S]*?grams:\s*60,\s*calories:\s*540,\s*percent:\s*30/);
+  const splitStart = page.indexOf("const CALORIE_SPLIT");
+  const split = page.slice(splitStart, page.indexOf("];", splitStart) + 2);
+  const calorieSegments = [...split.matchAll(/calories:\s*(\d+)/g)].map((match) => Number(match[1]));
+  const percentageSegments = [...split.matchAll(/percent:\s*(\d+(?:\.\d+)?)/g)].map((match) => Number(match[1]));
+  assert.equal(calorieSegments.reduce((sum, value) => sum + value, 0), 1800);
+  assert.equal(percentageSegments.reduce((sum, value) => sum + value, 0), 100);
 });

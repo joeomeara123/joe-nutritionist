@@ -5,3 +5,4 @@
 - Food values must identify whether they are per 100g, cooked weight, raw weight or per portion.
 - When a pack shows per-100g values but the portion is larger, scale every macro by the full portion weight.
 - Verify parser changes with representative spoken phrases and a production build.
+- 2026-08-17: Owner-only Sites access can reject the in-app browser when its session is not authenticated as the allowed account -> verify the active browser identity or get explicit approval before changing access mode.

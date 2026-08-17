@@ -25,15 +25,15 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
     openGraph: {
       title: "Joe's Daily Nutrition",
-      description: "Speak your meal. Know exactly what fits today.",
+      description: "The whole day, in one circle.",
       type: "website",
-      images: [`${origin}/og.png`],
+      images: [`${origin}/og-v2.png`],
     },
     twitter: {
       card: "summary_large_image",
       title: "Joe's Daily Nutrition",
-      description: "Speak your meal. Know exactly what fits today.",
-      images: [`${origin}/og.png`],
+      description: "The whole day, in one circle.",
+      images: [`${origin}/og-v2.png`],
     },
   };
 }

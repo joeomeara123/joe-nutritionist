@@ -10,6 +10,11 @@ type Diary = Record<string, Meal[]>;
 
 const TARGETS: Macros = { calories: 1800, protein: 160, carbs: 155, fat: 60, fibre: 30 };
 const ZERO: Macros = { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0 };
+const CALORIE_SPLIT = [
+  { label: "Protein", grams: 160, calories: 640, percent: 35.6, color: "#b7d94c" },
+  { label: "Carbs", grams: 155, calories: 620, percent: 34.4, color: "#7184df" },
+  { label: "Fat", grams: 60, calories: 540, percent: 30, color: "#ed9863" },
+];
 
 const FOODS: Food[] = [
   { id: "chicken-thigh", name: "Cooked chicken thighs", aliases: ["chicken thighs", "chicken thigh", "cooked chicken", "chicken"], basis: "100g", portionGrams: 64, portionLabel: "thigh", calories: 168, protein: 24.8, carbs: 0, fat: 7.6, fibre: 0 },
@@ -102,13 +107,15 @@ function coachMessage(consumed: Macros, preview?: Macros) {
   return { tone: "good", title: "You’re closing in on today’s goals.", body: `${round(proteinLeft)}g protein and ${round(fibreLeft)}g fibre remain.` };
 }
 
-function MacroCard({ label, value, target, color }: { label: string; value: number; target: number; color: string }) {
+function MacroLine({ label, value, target, color, note }: { label: string; value: number; target: number; color: string; note: string }) {
   const pct = Math.min(100, Math.round((value / target) * 100));
   const left = target - value;
   return (
-    <article className={`macro-card ${left < 0 ? "over" : ""}`} style={{ "--accent": color } as React.CSSProperties}>
-      <div className="mini-ring" style={{ "--progress": `${pct * 3.6}deg` } as React.CSSProperties}><span>{pct}%</span></div>
-      <div className="macro-copy"><p>{label}</p><strong>{round(value, 1)}g</strong><span> / {target}g</span><small>{left >= 0 ? `${round(left, 1)}g left` : `${round(Math.abs(left), 1)}g over`}</small></div>
+    <article className={`macro-line ${left < 0 ? "over" : ""}`} style={{ "--accent": color, "--fill": `${pct}%` } as React.CSSProperties}>
+      <div className="macro-name"><span className="split-dot" /><strong>{label}</strong><small>{note}</small></div>
+      <div className="macro-track"><span /></div>
+      <div className="macro-value"><strong>{round(value, 1)}</strong><span> / {target}g</span></div>
+      <div className="macro-left">{left >= 0 ? `${round(left, 1)}g left` : `${round(Math.abs(left), 1)}g over`}</div>
     </article>
   );
 }
@@ -205,26 +212,47 @@ export default function Home() {
         <label className="date-button">Day<input type="date" value={selectedDate} max={today} onChange={(event) => { setSelectedDate(event.target.value); setPreviewItems([]); }} /></label>
       </header>
 
-      <section className="hero-grid">
-        <article className="calorie-card">
-          <div><p className="eyebrow">Energy budget</p><h2><strong>{Math.abs(round(TARGETS.calories - consumed.calories))}</strong> kcal {consumed.calories <= TARGETS.calories ? "left" : "over"}</h2><p className="muted">{round(consumed.calories)} of 1,800 kcal logged</p></div>
-          <div className={`calorie-ring ${consumed.calories > TARGETS.calories ? "over" : ""}`} style={{ "--cal-progress": `${caloriePct * 3.6}deg` } as React.CSSProperties} aria-label={`${caloriePct} percent of calorie target consumed`}><span><strong>{caloriePct}%</strong><small>eaten</small></span></div>
-        </article>
-        <article className={`coach-card ${coach.tone}`}><span className="coach-dot">●</span><div><p className="eyebrow">Joe&apos;s coach</p><h2>{coach.title}</h2><p>{coach.body}</p></div></article>
+      <section className="plate-section">
+        <div className="plate-copy">
+          <p className="eyebrow">Your 1,800 calorie split</p>
+          <h2>The whole day,<br />in one circle.</h2>
+          <div className="split-legend">
+            {CALORIE_SPLIT.map((item) => (
+              <div className="split-row" key={item.label}>
+                <span className="split-dot" style={{ background: item.color }} />
+                <strong>{item.label}</strong>
+                <span>{item.grams}g</span>
+                <span>{item.calories} kcal</span>
+                <small>{item.percent}%</small>
+              </div>
+            ))}
+          </div>
+          <p className="fibre-note"><span>+</span> Fibre stays separate: <strong>{TARGETS.fibre}g minimum</strong></p>
+        </div>
+        <div className="wheel-wrap">
+          <div className="nutrition-wheel" aria-label="Daily calories: 35.6 percent protein, 34.4 percent carbohydrates, and 30 percent fat">
+            <div className={`eaten-ring ${consumed.calories > TARGETS.calories ? "over" : ""}`} style={{ "--eaten-progress": `${caloriePct * 3.6}deg` } as React.CSSProperties}>
+              <div className="wheel-centre"><strong>{caloriePct}%</strong><span>eaten</span><small>{round(consumed.calories)} / 1,800 kcal</small></div>
+            </div>
+          </div>
+          <div className="remaining-kcal"><strong>{Math.abs(round(TARGETS.calories - consumed.calories))}</strong><span>kcal {consumed.calories <= TARGETS.calories ? "left" : "over"}</span></div>
+        </div>
       </section>
 
+      <article className={`coach-strip ${coach.tone}`}><span className="coach-dot">●</span><div><strong>{coach.title}</strong><p>{coach.body}</p></div></article>
+
       <section className="macro-section">
-        <div className="section-heading"><div><p className="eyebrow">Daily targets</p><h2>Your macros</h2></div><p className="muted">Updated after every meal</p></div>
-        <div className="macro-grid">
-          <MacroCard label="Protein" value={consumed.protein} target={TARGETS.protein} color="#b8f34a" />
-          <MacroCard label="Carbs" value={consumed.carbs} target={TARGETS.carbs} color="#ffb86b" />
-          <MacroCard label="Fat" value={consumed.fat} target={TARGETS.fat} color="#f28181" />
-          <MacroCard label="Fibre" value={consumed.fibre} target={TARGETS.fibre} color="#77d5ba" />
+        <div className="section-heading"><div><p className="eyebrow">What remains</p><h2>Today&apos;s targets</h2></div><p className="muted">Live after every meal</p></div>
+        <div className="macro-ledger">
+          <MacroLine label="Protein" value={consumed.protein} target={TARGETS.protein} color="#b7d94c" note="build & recover" />
+          <MacroLine label="Carbs" value={consumed.carbs} target={TARGETS.carbs} color="#7184df" note="train & refuel" />
+          <MacroLine label="Fat" value={consumed.fat} target={TARGETS.fat} color="#ed9863" note="steady energy" />
+          <MacroLine label="Fibre" value={consumed.fibre} target={TARGETS.fibre} color="#6f9782" note="30g minimum" />
         </div>
       </section>
 
       <section className="entry-card">
-        <div className="entry-heading"><div><p className="eyebrow">Speak or type your meal</p><h2>What have you eaten—or what are you considering?</h2></div><div className="meal-selector"><button type="button" className={mealName === "Lunch" ? "active" : ""} onClick={() => setMealName("Lunch")}>Lunch</button><button type="button" className={mealName === "Dinner" ? "active" : ""} onClick={() => setMealName("Dinner")}>Dinner</button><button type="button" className={mealName === "Snack" ? "active" : ""} onClick={() => setMealName("Snack")}>Snack</button></div></div>
+        <div className="entry-heading"><div><p className="eyebrow">Add food</p><h2>Say exactly what you ate.</h2><p className="entry-example">“192g cooked chicken, one Veetee rice pot and Nando&apos;s sauce.”</p></div><div className="meal-selector"><button type="button" className={mealName === "Lunch" ? "active" : ""} onClick={() => setMealName("Lunch")}>Lunch</button><button type="button" className={mealName === "Dinner" ? "active" : ""} onClick={() => setMealName("Dinner")}>Dinner</button><button type="button" className={mealName === "Snack" ? "active" : ""} onClick={() => setMealName("Snack")}>Snack</button></div></div>
         <form className="entry-row" onSubmit={previewEntry}>
           <input value={entry} onChange={(event) => setEntry(event.target.value)} aria-label="Describe your food" placeholder="e.g. 200g cooked mince, one rice pot and 100g peppers" />
           <button className={`mic-button ${listening ? "listening" : ""}`} type="button" onClick={toggleVoice} aria-label={listening ? "Stop listening" : "Start voice entry"}><span className="mic-icon">{listening ? "■" : "●"}</span><span>{listening ? "Listening…" : "Speak"}</span></button>
