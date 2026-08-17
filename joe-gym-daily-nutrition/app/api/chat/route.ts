@@ -1,8 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
 
-import { FOODS } from "@/lib/food-parser";
+import { FOODS, type Macros } from "@/lib/food-parser";
 import { DAILY_TARGETS } from "@/lib/recommendations";
+import { searchFoodDatabase } from "@/lib/food-lookup";
 import { fitPortion, lookupFood, priceMeal, remainingFor, suggestMeals, type DayState, type MealItem } from "@/lib/nutrition-tools";
 
 export const runtime = "nodejs";
@@ -30,6 +31,20 @@ const ITEM_SCHEMA = {
     food: { type: "string", description: "Food name as Joe says it, e.g. 'chicken thighs', 'sticky rice', 'olive oil'." },
     grams: { type: "number", description: "Weight in grams, when Joe states a weight. Do not compute this from a count — use `portions` instead." },
     portions: { type: "number", description: "Number of whole items when Joe counts rather than weighs: 'three chicken thighs' is portions: 3. Never multiply a count by a portion size yourself; pass the count here and the tool does it." },
+    per100g: {
+      type: "object",
+      description:
+        "Only for a food that is NOT in the list below. Its macros per 100g, either from search_food_database or read off the packet by Joe. Never fill this in from your own knowledge — if you have neither, say so and ask.",
+      properties: {
+        calories: { type: "number" },
+        protein: { type: "number" },
+        carbs: { type: "number" },
+        fat: { type: "number" },
+        fibre: { type: "number" },
+      },
+      required: ["calories", "protein", "carbs", "fat", "fibre"],
+      additionalProperties: false,
+    },
     weighedAs: { type: "string", enum: ["cooked", "uncooked"], description: "Only meaningful alongside `grams`: the state Joe weighed it in. Pass it whenever he says, in either direction — meat is stored cooked and pasta is stored dry, so 'uncooked chicken' and 'cooked pasta' both need converting, opposite ways. Omit it if he did not say. A counted portion is already on the stored basis and ignores this." },
   },
   required: ["food"],
@@ -81,7 +96,13 @@ Plain prose. No markdown — no \`**bold**\`, no headings, no bullet lists. The 
 ## Style
 Lead with the number he asked for, in the first sentence. Then one or two lines of why, and what it leaves him for the rest of the day. No preamble, no bullet-point walls, no restating his question back to him. He is holding a pan.
 
-If he mentions a food you have no entry for, say so plainly and give him the closest stocked option — do not invent macros for it.
+## When he names a food you do not stock
+The list below is his usual shop, not the limit of what he eats. Never substitute a lookalike's numbers and never invent any, but do not dead-end either — that list is a starting point, not a boundary. In order:
+
+1. Call \`search_food_database\`. Pick the candidate that matches what he actually has, then pass its \`per100g\` straight into \`price_meal\` or \`fit_portion\` alongside everything else on the plate. Mention in passing that the figure came from a lookup rather than his own shelf.
+2. If nothing usable comes back, ask him to read the per-100g panel off the packet — four numbers — and pass those as \`per100g\`. That is the most accurate answer available, so it is worth one short question.
+
+Price the whole meal in one call, mixing stocked and looked-up foods freely. Do not make him choose between an answer and an accurate one.
 
 Tool results can carry an \`assumed\` field on an item. \`"quantity"\` means he named a food without an amount; \`"portionSize"\` means he counted pieces of something whose pieces vary — a chicken thigh is stored at 64g, but the pack itself says sizes vary, so three thighs is a count and not a weight. When an assumed item is a meaningful part of the meal, say what you assumed in a half-sentence and offer to reprice if he weighs it. Do not hide it, and do not make a fuss about it either.
 
@@ -137,16 +158,38 @@ export async function POST(request: Request) {
         properties: {
           fixed: { type: "array", items: ITEM_SCHEMA, description: "What he is already cooking, with quantities." },
           variable: { type: "string", description: "The single food to solve the portion for." },
+          variablePer100g: {
+            type: "object",
+            description: "Macros per 100g when the variable food is not in the list below. Same rule as `per100g`: from a lookup or from Joe, never from you.",
+            properties: { calories: { type: "number" }, protein: { type: "number" }, carbs: { type: "number" }, fat: { type: "number" }, fibre: { type: "number" } },
+            required: ["calories", "protein", "carbs", "fat", "fibre"],
+            additionalProperties: false,
+          },
         },
         required: ["fixed", "variable"],
         additionalProperties: false,
       },
-      run: ({ fixed, variable }: { fixed: MealItem[]; variable: string }) => {
+      run: ({ fixed, variable, variablePer100g }: { fixed: MealItem[]; variable: string; variablePer100g?: Macros }) => {
         try {
-          return JSON.stringify(fitPortion({ day, fixed, variable }));
+          return JSON.stringify(fitPortion({ day, fixed, variable, variablePer100g }));
         } catch (error) {
           return JSON.stringify({ error: error instanceof Error ? error.message : "Could not solve that portion." });
         }
+      },
+    }),
+    betaTool({
+      name: "search_food_database",
+      description:
+        "Look up a food Joe does not keep in, when he names something outside the list below. Returns candidate products with macros per 100g from Open Food Facts. Pick the one matching what he actually has, then pass its per100g into price_meal or fit_portion. The data is community-maintained, so say the figure came from a lookup.",
+      inputSchema: {
+        type: "object",
+        properties: { food: { type: "string", description: "What Joe called it, plus a brand if he gave one, e.g. \"Sainsbury's 0% fat Greek yogurt\"." } },
+        required: ["food"],
+        additionalProperties: false,
+      },
+      run: async ({ food }: { food: string }) => {
+        const found = await searchFoodDatabase(food);
+        return JSON.stringify(found.length ? found : { error: `Nothing usable found for "${food}". Ask Joe to read the per-100g panel off the packet.` });
       },
     }),
     betaTool({

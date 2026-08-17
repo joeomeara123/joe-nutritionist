@@ -42,5 +42,7 @@ repo map.
 - 2026-08-17: Keyword search picks the wrong product (whipped feta, flavoured rice) -> rank candidates by distance from the macros already stored, after scaling portion-basis foods to per 100g.
 - 2026-08-17: Letting the forward weight scan skip `[\s,(]*` made it cross a comma, so "chicken thighs, 100g pasta" gave the chicken the pasta's weight -> skip whitespace only; brackets are neutralised to spaces at normalise time, which keeps every index aligned.
 - 2026-08-17: `rawYield` assumed every food is stored cooked, so "225g of cooked pasta" was priced as 225g dry -> `weighedAs` + `cookedRatio` (cooked mass / uncooked mass) and one shared `toStoredGrams`; meat converts down from uncooked, pasta converts down from cooked.
+- 2026-08-17: The chat dead-ended on any food outside `FOODS`, correctly refusing to guess but offering no way forward -> `search_food_database` (Open Food Facts, no bot protection, works from serverless) plus `MealItem.per100g` for label figures Joe reads out; arithmetic still lives in TypeScript.
+- 2026-08-17: "I won't guess" is only half a rule -> it needs "and here is how I find out instead", or a correct refusal becomes a dead end.
 - 2026-08-17: A converted weight is not the number Joe typed -> the chip shows "from 225g cooked" so it does not read as a mistake.
 - 2026-08-17: `recommendations.ts` hardcoded meal macros *and* a `logText` the parser read differently -> suggestions derive macros from their own `logText`; the change immediately exposed "one Veetee sticky rice pot" reporting `pot` as an unknown food.

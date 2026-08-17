@@ -16,7 +16,18 @@ export type DayState = { consumed: Macros; mealCount: number; hour: number };
  * not `grams: 192` — asking a language model to do that multiplication is asking it to do
  * arithmetic, which is the one thing this layer exists to prevent.
  */
-export type MealItem = { food: string; grams?: number; portions?: number; weighedAs?: CookState };
+export type MealItem = {
+  food: string;
+  grams?: number;
+  portions?: number;
+  weighedAs?: CookState;
+  /**
+   * Macros per 100g for a food that is not in `FOODS` — either from `searchFoodDatabase` or read
+   * off the packet by Joe. The scaling still happens here; this only supplies the numbers the
+   * catalogue is missing, so the model never has to do the arithmetic itself.
+   */
+  per100g?: Macros;
+};
 
 const ZERO: Macros = { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0 };
 
@@ -81,8 +92,14 @@ export function lookupFood(query: string): Food | null {
   return partial[0]?.food ?? null;
 }
 
+/** A food supplied per-100g by the caller, so it can be priced without being in the catalogue. */
+function adHocFood(name: string, per100g: Macros): Food {
+  return { id: `adhoc:${name.toLowerCase()}`, name, aliases: [], basis: "100g", ...per100g };
+}
+
 function resolveItem(item: MealItem): { parsed: ParsedFood; food: Food } | { unknown: string } {
-  const food = lookupFood(item.food);
+  // Explicit macros win over the catalogue: if Joe has read a label out, that beats a lookalike.
+  const food = item.per100g ? adHocFood(item.food, item.per100g) : lookupFood(item.food);
   if (!food) return { unknown: item.food };
 
   const grams = item.grams ?? (item.portions !== undefined && food.portionGrams ? item.portions * food.portionGrams : undefined) ?? food.portionGrams ?? 100;
@@ -164,9 +181,9 @@ const MAX_GRAMS = 800;
  *     app. Because it scores against what is *left*, a mostly-empty day naturally yields a
  *     big portion and a nearly-finished one yields a small one.
  */
-export function fitPortion(args: { day: DayState; fixed: MealItem[]; variable: string }): FittedPortion {
-  const food = lookupFood(args.variable);
-  if (!food) throw new Error(`No stored food matches "${args.variable}". Add it to FOODS before solving for a portion.`);
+export function fitPortion(args: { day: DayState; fixed: MealItem[]; variable: string; variablePer100g?: Macros }): FittedPortion {
+  const food = args.variablePer100g ? adHocFood(args.variable, args.variablePer100g) : lookupFood(args.variable);
+  if (!food) throw new Error(`No stored food matches "${args.variable}". Look it up or read its label, then pass its per-100g macros.`);
 
   const fixedPriced = priceMeal(args.fixed, args.day);
   const base = add(args.day.consumed, total(fixedPriced.items));
