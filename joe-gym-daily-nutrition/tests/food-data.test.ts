@@ -4,11 +4,15 @@ import { FOODS, parseFood } from "../lib/food-parser";
 import { recommendDay } from "../lib/recommendations";
 
 /**
- * Foods Sainsbury's stocks but publishes no nutrition table for. Their macros are estimates
- * carried over from the original build. This list is asserted exactly: adding a food without a
- * source, or sourcing one of these, has to be a deliberate edit rather than a quiet drift.
+ * Foods Sainsbury's stocks but publishes no nutrition table for: the Veetee Heat & Eat pots and
+ * McCain's Gastro chips. Their macros are estimates carried over from the original build.
+ *
+ * This list is asserted exactly, and it has already earned that. A first pass wrongly put the
+ * protein bagel, feta and olive oil in here — an empty `details_html` from the Sainsbury's API
+ * turned out to be transient, and one product published its numbers only per bagel. Re-check
+ * before concluding a food cannot be sourced; do not fill one in from a similar product.
  */
-const UNSOURCED = ["sticky-rice", "jasmine-rice", "feta", "chips", "protein-bagel", "olive-oil"];
+const UNSOURCED = ["sticky-rice", "jasmine-rice", "chips"];
 
 describe("every food says where its numbers came from", () => {
   test("only the known exceptions lack a source", () => {

@@ -84,8 +84,9 @@ export const FOODS: Food[] = [
     source: sainsburys("Sainsbury's Sweet Peppers (Colours may vary) x3", "sainsburys-sweet-peppers-colours-may-vary-x3", "per 100g, raw") },
   { id: "avocado", name: "Avocado", aliases: ["avocado"], basis: "100g", calories: 197, protein: 1.9, carbs: 1.9, fat: 19.5, fibre: 3.4,
     source: sainsburys("Sainsbury's Medium Avocado", "sainsburys-medium-avocado", "per 100g") },
-  // Sainsbury's sells feta but publishes no table for the plain block.
-  { id: "feta", name: "Feta", aliases: ["feta cheese", "feta"], basis: "100g", calories: 276, protein: 14.2, carbs: 0.8, fat: 23, fibre: 0 },
+  // Sainsbury's own Greek Feta shows no table; Attis is the stocked block that publishes one.
+  { id: "feta", name: "Feta", aliases: ["feta cheese", "feta"], basis: "100g", calories: 276, protein: 16.5, carbs: 0.7, fat: 23, fibre: 0,
+    source: sainsburys("Attis Greek Feta Cheese 200g", "attis-greek-feta-cheese-200g", "per 100g; fibre is not published") },
   // Condiments carry a portion size so an unquantified mention costs a spoonful rather than
   // the 100g fallback — 100g of pesto is 451 kcal, which quietly wrecks a day's numbers.
   { id: "pesto", name: "Green pesto", aliases: ["green pesto", "pesto"], basis: "100g", portionGrams: 15, portionLabel: "tbsp", calories: 451, protein: 4.3, carbs: 6.4, fat: 45, fibre: 1.8,
@@ -96,16 +97,19 @@ export const FOODS: Food[] = [
     source: sainsburys("Nando's Peri Peri Sauce Medium 125g", "nando-s-peri-peri-sauce-medium-125g", "per 100g (49kcal 0.6P 1.4C 4.2F), scaled to the 20g serving; fibre is not published") },
   { id: "protein-yogurt", name: "High-protein yoghurt", aliases: ["high protein yoghurt", "high protein yogurt", "protein yoghurt", "protein yogurt"], basis: "100g", calories: 72, protein: 10, carbs: 6.6, fat: 0.2, fibre: 0,
     source: sainsburys("Arla Protein Strawberry Yogurt 200g", "arla-protein-strawberry-yogurt-200g", "per 100g; fibre is not published") },
-  // New York Bakery's Protein Boost bagels are stocked but carry no nutrition table.
-  { id: "protein-bagel", name: "Protein bagel", aliases: ["protein boost bagel", "protein bagel", "bagel"], basis: "portion", portionGrams: 68, portionLabel: "bagel", calories: 194, protein: 10.6, carbs: 26.5, fat: 5, fibre: 4.4 },
+  { id: "protein-bagel", name: "Protein bagel", aliases: ["protein boost bagel", "protein bagel", "bagel"], basis: "portion", portionGrams: 68, portionLabel: "bagel", calories: 202, protein: 10.6, carbs: 26.5, fat: 5, fibre: 4.4,
+    source: sainsburys("New York Bakery Sliced Protein Boost NYC Bagels", "new-york-bakery-sliced-protein-boost-nyc-bagels", "per 100g, taken from the per-bagel column; the label states 1 serving = 1 bagel (68g)") },
   { id: "peanut-butter", name: "Peanut butter", aliases: ["smooth peanut butter", "peanut butter"], basis: "100g", portionGrams: 15, portionLabel: "serving", calories: 624, protein: 24.6, carbs: 13.7, fat: 50.9, fibre: 6.4,
     source: sainsburys("Sainsbury's Peanut Butter Smooth 340g", "sainsburys-peanut-butter-smooth-340g", "per 100g") },
   { id: "veggie-cakes", name: "Beetroot veggie cakes", aliases: ["beetroot and balsamic veggie cakes", "beetroot veggie cakes", "veggie cakes", "rice cakes"], basis: "portion", portionGrams: 9.38, portionLabel: "cake", calories: 39.8, protein: 2.3, carbs: 4.8, fat: 1.1, fibre: 0.6,
     source: sainsburys("Kallo Beetroot Veggie Cake 122g", "kallo-beetrooot-veggie-cake-122g", "per 100g (424kcal 25P 51C 12F 6fib), scaled to the 9.38g cake") },
   // Cooking fats sit last on purpose: their short aliases ("oil", "butter") would otherwise
   // shadow longer names that contain them, e.g. "peanut butter".
-  // Olive oil is labelled per 100ml, and Joe weighs it, so the label cannot be used directly.
-  { id: "olive-oil", name: "Olive oil", aliases: ["extra virgin olive oil", "olive oil", "vegetable oil", "rapeseed oil", "cooking oil", "oil"], basis: "100g", portionGrams: 13.5, portionLabel: "tbsp", calories: 884, protein: 0, carbs: 0, fat: 100, fibre: 0 },
+  // The headline figures are per 100ml, which is useless for a food Joe weighs. The label's
+  // per-tablespoon column is mass-based though — 123 kcal and 13.7g fat — and since the oil is
+  // essentially all fat that tablespoon weighs 13.7g, giving 123/13.7 = 898 kcal per 100g.
+  { id: "olive-oil", name: "Olive oil", aliases: ["extra virgin olive oil", "olive oil", "vegetable oil", "rapeseed oil", "cooking oil", "oil"], basis: "100g", portionGrams: 13.7, portionLabel: "tbsp", calories: 898, protein: 0, carbs: 0, fat: 100, fibre: 0,
+    source: sainsburys("Sainsbury's Olive Oil, Extra Virgin 1L", "sainsburys-olive-oil-extra-virgin-1l", "per 100g, derived from the label's per-tablespoon column (123kcal / 13.7g fat)") },
   { id: "butter", name: "Butter", aliases: ["salted butter", "unsalted butter", "butter"], basis: "100g", portionGrams: 10, portionLabel: "knob", calories: 744, protein: 0.6, carbs: 0.6, fat: 82, fibre: 0,
     source: sainsburys("Anchor Salted Butter 200g", "anchor-salted-butter-200g", "per 100g") },
 ];
@@ -233,7 +237,12 @@ export function parseFood(text: string): { items: ParsedFood[]; unknown: string[
     else grams = 100;
     // A count is a stated quantity, but for a food whose pieces vary the *weight* of one is
     // still the app's guess, and that is where "3 thighs" quietly becomes a number.
-    if (!stated && !spoon) assumed = wordBefore ? (food.portionVaries ? "portionSize" : undefined) : "quantity";
+    //
+    // A portion-basis food is sold and eaten as whole units, so a bare "bagel" plainly means
+    // one bagel — that is reading Joe, not guessing at him. Only foods normally measured by
+    // weight (peanut butter, pesto) have no natural amount to fall back on.
+    const counted = Boolean(wordBefore) || food.basis === "portion";
+    if (!stated && !spoon) assumed = counted ? (food.portionVaries ? "portionSize" : undefined) : "quantity";
 
     const weighedAs = cookStateOf(stated?.basis) ?? cookStateOf(before.match(new RegExp(`\\b(${BASIS})\\s*$`))?.[1]);
     const storedGrams = toStoredGrams(food, grams, weighedAs);

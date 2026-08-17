@@ -78,3 +78,17 @@ or a bagel is not flagged: there the portion *is* the unit.
 
 The rule this settles: **flag the number the app supplied, not the field the user left blank.**
 Those are not the same thing, and the gap between them is where 192g looked measured.
+
+## Follow-up: not every default is a guess (2026-08-17)
+
+Flagging counted portions immediately over-corrected: "peanut butter bagel" flagged the bagel
+as an assumed quantity. But a bagel is sold and eaten as a whole unit, so a bare mention plainly
+means one — that is reading Joe, not guessing at him.
+
+A bare mention is only an assumption for foods normally measured by weight, where there is no
+natural amount to fall back on. Peanut butter could be 10g or 40g; a bagel is a bagel. The
+distinction already existed in the data as `basis: "portion"`, which is set precisely because
+the label's numbers are per pot, per bagel, per cake.
+
+Flagging everything is its own failure: a warning on the obvious cases trains you to ignore the
+warning on the real ones.

@@ -59,11 +59,19 @@ URL, and the basis wording off that page — "per 100g" means different things f
 a cooked-as-instructed one. UK labels report *available* carbohydrate with fibre listed
 separately, so American figures for the same food are not interchangeable.
 
-Six foods have **no** source, because Sainsbury's publishes no nutrition table for them. Their
-macros are estimates: the two Veetee rice pots, feta, oven chips, the protein bagel, and olive
-oil (labelled per 100ml, and Joe weighs in grams). `tests/food-data.test.ts` asserts that list
-exactly, so a new unsourced food fails the suite instead of blending in, and the chat is told
-to flag them. Do not fill one in from a similar product.
+Three foods have **no** source, because Sainsbury's publishes no nutrition table for them: the
+two Veetee Heat & Eat rice pots and McCain's Gastro chips. Their macros are estimates.
+`tests/food-data.test.ts` asserts that list exactly, so a new unsourced food fails the suite
+instead of blending in, and the chat is told to flag them. Do not fill one in from a similar
+product — but do re-check before concluding a food cannot be sourced. An empty `details_html`
+from the Sainsbury's API turns out to be transient, and some products publish their numbers
+only per bagel or per tablespoon, which wrongly put three foods on this list at first.
+
+Quantities the app supplies rather than reads are flagged in the preview. There are two kinds,
+and they are different: `"quantity"` (a food named with no amount — peanut butter could be 10g
+or 40g) and `"portionSize"` (pieces counted, but what one piece weighs is a guess; the chicken
+pack itself says "thigh fillet sizes also vary"). A food sold as whole units is *not* flagged
+for a bare mention — "bagel" plainly means one bagel.
 
 Suggestions in `lib/recommendations.ts` derive their macros from their own `logText`, so the
 card and the resulting diary entry cannot disagree.

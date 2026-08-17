@@ -93,9 +93,11 @@ function resolveItem(item: MealItem): { parsed: ParsedFood; food: Food } | { unk
 
   // Counting pieces of something whose pieces vary states a count, not a weight — the chat has
   // to be able to say so rather than quoting the total as if it were measured.
+  // A portion-basis food is eaten as whole units, so no stated amount means one of them.
+  const counted = item.portions !== undefined || food.basis === "portion";
   const assumed: Assumption | undefined =
     item.grams !== undefined ? undefined
-      : item.portions !== undefined ? (food.portionVaries ? "portionSize" : undefined)
+      : counted ? (food.portionVaries ? "portionSize" : undefined)
         : "quantity";
 
   const parsed = {

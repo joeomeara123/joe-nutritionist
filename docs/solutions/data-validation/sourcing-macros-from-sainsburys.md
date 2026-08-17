@@ -68,3 +68,27 @@ Suggestions now derive their macros from their own `logText`. That change immedi
 on `"one Veetee sticky rice pot"`, where the parser matched the alias `veetee sticky rice` and
 reported the trailing `pot` as an unrecognised food — a bug that had been reachable from the
 Add Food box all along, and that no hardcoded table would ever have surfaced.
+
+## Follow-up: "no table" was wrong three times out of six (2026-08-17)
+
+Joe asked why the protein bagel was flagged as assumed. Re-checking the six foods marked
+unsourceable, **three of them were sourceable all along**:
+
+- **Protein bagel** — New York Bakery Protein Boost publishes a full table, and states
+  "1 serving = 1 bagel (68g)", confirming the stored portion size. Only the calories were off
+  (194 → 202).
+- **Feta** — Sainsbury's own Greek Feta shows no table, but Attis Greek Feta, stocked alongside
+  it, does.
+- **Olive oil** — the headline is per 100ml, useless for a food weighed in grams. But the
+  label's *per-tablespoon* column is mass-based (123 kcal, 13.7g fat), and since the oil is
+  essentially all fat that tablespoon weighs 13.7g, giving 898 kcal per 100g.
+
+Two causes. The harvester required a column headed "per 100g", so a product publishing only
+per-bagel or per-tablespoon figures looked empty. And `details_html` comes back empty from the
+Sainsbury's API intermittently — a single miss is not evidence of absence, so the re-check
+retries once per product.
+
+The Veetee pots and McCain Gastro chips are genuinely absent, confirmed on two separate passes.
+
+**A negative result from a scraper needs the same scepticism as a positive one.** "No data
+found" is a claim about the scraper at least as much as about the shop.

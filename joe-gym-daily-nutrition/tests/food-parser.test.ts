@@ -17,7 +17,7 @@ describe("recommendation food logging", () => {
     const result = parseFood("one protein bagel and 15g peanut butter");
 
     expect(result.items.map((item) => item.id)).toEqual(["protein-bagel", "peanut-butter"]);
-    expect(result.items.reduce((sum, item) => sum + item.calories, 0)).toBeCloseTo(287.6, 0);
+    expect(result.items.reduce((sum, item) => sum + item.calories, 0)).toBeCloseTo(295.6, 0);
     expect(result.items.reduce((sum, item) => sum + item.protein, 0)).toBeCloseTo(14.3, 1);
   });
 
@@ -65,7 +65,7 @@ describe("cooking oil is a first-class food", () => {
     const result = parseFood("4g olive oil");
 
     expect(result.items.map((item) => item.id)).toEqual(["olive-oil"]);
-    expect(result.items[0].calories).toBeCloseTo(35.4, 1);
+    expect(result.items[0].calories).toBeCloseTo(35.9, 1);
     expect(result.items[0].fat).toBeCloseTo(4, 1);
     expect(result.unknown).toHaveLength(0);
   });
@@ -242,8 +242,8 @@ describe("spoons are a quantity", () => {
 
     const result = parseFood("2 tbsp olive oil");
 
-    // Olive oil stores a 13.5g tbsp, so this must not use a generic 15g.
-    expect(result.items[0].grams).toBeCloseTo(27, 1);
+    // Olive oil's label gives a 13.7g tbsp, so this must not use the generic 15g.
+    expect(result.items[0].grams).toBeCloseTo(27.4, 1);
   });
 });
 
@@ -351,6 +351,21 @@ describe("a counted portion is a count, not a weight", () => {
     // A Veetee pot is a pot and a bagel is a bagel; only variable-size foods carry the flag.
     expect(parseFood("one Veetee sticky rice pot").items[0].assumed).toBeUndefined();
     expect(parseFood("four beetroot veggie cakes").items[0].assumed).toBeUndefined();
+  });
+
+  test("a bare mention of a whole-unit food means one of them, not a guess", () => {
+    expect(typeof parseFood).toBe("function");
+    if (!parseFood) return;
+
+    const result = parseFood("peanut butter bagel");
+    const bagel = result.items.find((item) => item.id === "protein-bagel");
+    const peanutButter = result.items.find((item) => item.id === "peanut-butter");
+
+    // "bagel" plainly means one bagel — reading Joe, not guessing at him.
+    expect(bagel?.display).toBe("1 bagel");
+    expect(bagel?.assumed).toBeUndefined();
+    // Peanut butter has no natural amount, so 15g really is the app's number.
+    expect(peanutButter?.assumed).toBe("quantity");
   });
 
   test("a stated weight overrides the assumption entirely", () => {
