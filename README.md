@@ -52,6 +52,22 @@ npm test        # unit tests + build + rendered-output test
 npm run lint
 ```
 
+### Where the food numbers come from
+
+Every food in `lib/food-parser.ts` carries a `source`: the Sainsbury's product Joe buys, its
+URL, and the basis wording off that page — "per 100g" means different things for a raw pack and
+a cooked-as-instructed one. UK labels report *available* carbohydrate with fibre listed
+separately, so American figures for the same food are not interchangeable.
+
+Six foods have **no** source, because Sainsbury's publishes no nutrition table for them. Their
+macros are estimates: the two Veetee rice pots, feta, oven chips, the protein bagel, and olive
+oil (labelled per 100ml, and Joe weighs in grams). `tests/food-data.test.ts` asserts that list
+exactly, so a new unsourced food fails the suite instead of blending in, and the chat is told
+to flag them. Do not fill one in from a similar product.
+
+Suggestions in `lib/recommendations.ts` derive their macros from their own `logText`, so the
+card and the resulting diary entry cannot disagree.
+
 Key modules:
 
 - `app/page.tsx` — dashboard UI, including the calorie-composition wheel.

@@ -42,7 +42,10 @@ function foodCatalogue() {
     // A 100g-basis food can still have a serving size; the model needs it to use `portions`.
     const serving = food.basis === "100g" && food.portionGrams ? `, 1 ${food.portionLabel} = ${food.portionGrams}g` : "";
     const raw = food.rawYield ? `, cooked basis (raw x${food.rawYield})` : "";
-    return `- ${food.name} [${food.aliases[0]}] ${basis}${serving}${raw}: ${food.calories}kcal ${food.protein}P ${food.carbs}C ${food.fat}F ${food.fibre}fib`;
+    // Flag the handful of foods whose numbers are estimates rather than label figures, so the
+    // chat can say so instead of quoting them with the same confidence as the rest.
+    const estimate = food.source ? "" : " [ESTIMATE, not from a label]";
+    return `- ${food.name} [${food.aliases[0]}] ${basis}${serving}${raw}: ${food.calories}kcal ${food.protein}P ${food.carbs}C ${food.fat}F ${food.fibre}fib${estimate}`;
   }).join("\n");
 }
 
@@ -79,6 +82,8 @@ Plain prose. No markdown — no \`**bold**\`, no headings, no bullet lists. The 
 Lead with the number he asked for, in the first sentence. Then one or two lines of why, and what it leaves him for the rest of the day. No preamble, no bullet-point walls, no restating his question back to him. He is holding a pan.
 
 If he mentions a food you have no entry for, say so plainly and give him the closest stocked option — do not invent macros for it.
+
+Most figures below come straight off the Sainsbury's label for the product he buys. The few marked ESTIMATE do not — Sainsbury's publishes no table for those. Use them normally, but if one is the main thing driving your answer, mention in passing that it is an estimate.
 
 If he tells you he has eaten something, offer to log it and use \`log_meal\` when he says yes.
 

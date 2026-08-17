@@ -1,3 +1,5 @@
+import { parseFood } from "./food-parser";
+
 export type MacroTotals = { calories: number; protein: number; carbs: number; fat: number; fibre: number };
 
 export type Suggestion = {
@@ -39,16 +41,40 @@ const add = (a: MacroTotals, b: MacroTotals): MacroTotals => ({
   fibre: a.fibre + b.fibre,
 });
 
-const macro = (calories: number, protein: number, carbs: number, fat: number, fibre: number): MacroTotals => ({ calories, protein, carbs, fat, fibre });
+const round1 = (value: number) => Number(value.toFixed(1));
 
-const MEALS: Suggestion[] = [
+type Recipe = Omit<Suggestion, "macros">;
+
+/**
+ * A suggestion's macros are read back out of its own `logText` rather than written down beside
+ * it. The card and the diary entry then agree by construction: hardcoding both let them drift
+ * apart the moment a food's numbers changed, and the card is what Joe cooks from.
+ */
+function withMacros(recipe: Recipe): Suggestion {
+  const parsed = parseFood(recipe.logText);
+  if (parsed.unknown.length) {
+    throw new Error(`Suggestion "${recipe.id}" names a food the parser cannot resolve: ${parsed.unknown.join(", ")}`);
+  }
+  const total = parsed.items.reduce((sum, item) => add(sum, item), ZERO);
+  return {
+    ...recipe,
+    macros: {
+      calories: Math.round(total.calories),
+      protein: round1(total.protein),
+      carbs: round1(total.carbs),
+      fat: round1(total.fat),
+      fibre: round1(total.fibre),
+    },
+  };
+}
+
+const MEAL_RECIPES: Recipe[] = [
   {
     id: "chicken-rice-bowl",
     kind: "meal",
     title: "Chicken rice bowl",
     items: ["200g cooked chicken thighs", "1 Veetee sticky rice pot", "250g broccoli", "150g peppers"],
     logText: "200g cooked chicken thighs, one Veetee sticky rice pot, 250g broccoli and 150g peppers",
-    macros: macro(662, 60.1, 60.2, 19, 11),
   },
   {
     id: "lean-mince-pasta",
@@ -56,7 +82,6 @@ const MEALS: Suggestion[] = [
     title: "Lean mince pasta",
     items: ["200g cooked 5% mince", "80g dry fusilli", "200g peppers"],
     logText: "200g cooked 5% mince, 80g dry pasta and 200g peppers",
-    macros: macro(677, 73.6, 68.2, 11.2, 6.4),
   },
   {
     id: "lighter-mince-pasta",
@@ -64,7 +89,6 @@ const MEALS: Suggestion[] = [
     title: "Lighter mince pasta",
     items: ["150g cooked 5% mince", "60g dry fusilli", "250g broccoli"],
     logText: "150g cooked 5% mince, 60g dry pasta and 250g broccoli",
-    macros: macro(555, 59.7, 54.2, 9, 10.4),
   },
   {
     id: "chicken-pesto-pasta",
@@ -72,7 +96,6 @@ const MEALS: Suggestion[] = [
     title: "Chicken pesto pasta",
     items: ["180g cooked chicken thighs", "80g dry fusilli", "15g pesto", "200g peppers"],
     logText: "180g cooked chicken thighs, 80g dry pasta, 15g pesto and 200g peppers",
-    macros: macro(712, 57, 69, 22.4, 6.6),
   },
   {
     id: "steak-rice-broccoli",
@@ -80,7 +103,6 @@ const MEALS: Suggestion[] = [
     title: "Steak, rice and broccoli",
     items: ["225g cooked sirloin steak", "1 Veetee sticky rice pot", "250g broccoli"],
     logText: "225g cooked steak, one Veetee sticky rice pot and 250g broccoli",
-    macros: macro(711, 71.3, 52.2, 22.9, 8.3),
   },
   {
     id: "mince-rice-bowl",
@@ -88,7 +110,6 @@ const MEALS: Suggestion[] = [
     title: "Mince rice bowl",
     items: ["200g cooked 5% mince", "1 Veetee sticky rice pot", "200g peppers", "75g avocado"],
     logText: "200g cooked 5% mince, one Veetee sticky rice pot, 200g peppers and 75g avocado",
-    macros: macro(708, 68.5, 58.2, 23.3, 8.6),
   },
   {
     id: "steak-and-chips",
@@ -96,7 +117,6 @@ const MEALS: Suggestion[] = [
     title: "Steak, chips and broccoli",
     items: ["180g cooked sirloin steak", "140g oven chips", "200g broccoli"],
     logText: "180g cooked steak, 140g oven chips and 200g broccoli",
-    macros: macro(741, 59.3, 53, 31, 11.2),
   },
   {
     id: "salmon-rice-bowl",
@@ -104,7 +124,6 @@ const MEALS: Suggestion[] = [
     title: "Salmon rice bowl",
     items: ["160g cooked salmon", "1 Veetee sticky rice pot", "250g broccoli"],
     logText: "160g cooked salmon, one Veetee sticky rice pot and 250g broccoli",
-    macros: macro(681, 47.6, 52.2, 29.5, 8.3),
   },
   {
     id: "chicken-and-chips",
@@ -112,7 +131,6 @@ const MEALS: Suggestion[] = [
     title: "Chicken, chips and peppers",
     items: ["180g cooked chicken thighs", "160g oven chips", "200g peppers"],
     logText: "180g cooked chicken thighs, 160g oven chips and 200g peppers",
-    macros: macro(734, 51.9, 61.2, 30.9, 8.9),
   },
   {
     id: "steak-pesto-pasta",
@@ -120,7 +138,6 @@ const MEALS: Suggestion[] = [
     title: "Steak pesto pasta",
     items: ["180g cooked sirloin steak", "60g dry fusilli", "10g pesto", "200g peppers"],
     logText: "180g cooked steak, 60g dry pasta, 10g pesto and 200g peppers",
-    macros: macro(655, 59.5, 54.4, 21.8, 5.8),
   },
   {
     id: "salmon-pasta",
@@ -128,18 +145,16 @@ const MEALS: Suggestion[] = [
     title: "Salmon pasta and broccoli",
     items: ["140g cooked salmon", "60g dry fusilli", "200g broccoli"],
     logText: "140g cooked salmon, 60g dry pasta and 200g broccoli",
-    macros: macro(631, 45.8, 52, 24.7, 8.7),
   },
 ];
 
-const SNACKS: Suggestion[] = [
+const SNACK_RECIPES: Recipe[] = [
   {
     id: "protein-yoghurt",
     kind: "snack",
     title: "High-protein yoghurt",
     items: ["200g high-protein yoghurt"],
     logText: "200g high protein yoghurt",
-    macros: macro(146, 20, 10.2, 1.6, 0),
   },
   {
     id: "protein-bagel",
@@ -147,7 +162,6 @@ const SNACKS: Suggestion[] = [
     title: "Protein bagel",
     items: ["1 protein bagel"],
     logText: "one protein bagel",
-    macros: macro(194, 10.6, 26.5, 5, 4.4),
   },
   {
     id: "bagel-peanut-butter",
@@ -155,7 +169,6 @@ const SNACKS: Suggestion[] = [
     title: "Bagel with peanut butter",
     items: ["1 protein bagel", "15g peanut butter"],
     logText: "one protein bagel and 15g peanut butter",
-    macros: macro(285, 14.5, 28.9, 12.1, 5.6),
   },
   {
     id: "yoghurt-bagel",
@@ -163,7 +176,6 @@ const SNACKS: Suggestion[] = [
     title: "Yoghurt and a protein bagel",
     items: ["200g high-protein yoghurt", "1 protein bagel"],
     logText: "200g high protein yoghurt and one protein bagel",
-    macros: macro(340, 30.6, 36.7, 6.6, 4.4),
   },
   {
     id: "yoghurt-veggie-cakes",
@@ -171,7 +183,6 @@ const SNACKS: Suggestion[] = [
     title: "Yoghurt with veggie cakes",
     items: ["200g high-protein yoghurt", "2 beetroot veggie cakes"],
     logText: "200g high protein yoghurt and two beetroot veggie cakes",
-    macros: macro(226, 24.8, 19.8, 3.8, 1.2),
   },
   {
     id: "avocado-veggie-cakes",
@@ -179,7 +190,6 @@ const SNACKS: Suggestion[] = [
     title: "Avocado veggie cakes",
     items: ["100g avocado", "2 beetroot veggie cakes"],
     logText: "100g avocado and two beetroot veggie cakes",
-    macros: macro(240, 6.8, 18.1, 16.9, 7.9),
   },
   {
     id: "broccoli-feta-side",
@@ -187,7 +197,6 @@ const SNACKS: Suggestion[] = [
     title: "Broccoli and feta side",
     items: ["250g broccoli", "30g feta"],
     logText: "250g broccoli and 30g feta",
-    macros: macro(170, 10.3, 11.2, 7.9, 8.3),
   },
   {
     id: "four-veggie-cakes",
@@ -195,9 +204,11 @@ const SNACKS: Suggestion[] = [
     title: "Four beetroot veggie cakes",
     items: ["4 beetroot veggie cakes"],
     logText: "four beetroot veggie cakes",
-    macros: macro(160, 9.6, 19.2, 4.4, 2.4),
   },
 ];
+
+const MEALS: Suggestion[] = MEAL_RECIPES.map(withMacros);
+const SNACKS: Suggestion[] = SNACK_RECIPES.map(withMacros);
 
 const totalSuggestions = (items: Suggestion[]) => items.reduce((sum, item) => add(sum, item.macros), ZERO);
 

@@ -17,8 +17,8 @@ describe("recommendation food logging", () => {
     const result = parseFood("one protein bagel and 15g peanut butter");
 
     expect(result.items.map((item) => item.id)).toEqual(["protein-bagel", "peanut-butter"]);
-    expect(result.items.reduce((sum, item) => sum + item.calories, 0)).toBeCloseTo(285, 0);
-    expect(result.items.reduce((sum, item) => sum + item.protein, 0)).toBeCloseTo(14.5, 1);
+    expect(result.items.reduce((sum, item) => sum + item.calories, 0)).toBeCloseTo(287.6, 0);
+    expect(result.items.reduce((sum, item) => sum + item.protein, 0)).toBeCloseTo(14.3, 1);
   });
 
   test("scales counted beetroot veggie cakes by the complete cake portion", () => {
@@ -29,8 +29,8 @@ describe("recommendation food logging", () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0].display).toBe("4 cakes");
-    expect(result.items[0].calories).toBeCloseTo(160, 0);
-    expect(result.items[0].protein).toBeCloseTo(9.6, 1);
+    expect(result.items[0].calories).toBeCloseTo(159.2, 0);
+    expect(result.items[0].protein).toBeCloseTo(9.2, 1);
     expect(result.items[0].fibre).toBeCloseTo(2.4, 1);
   });
 });
@@ -163,7 +163,7 @@ describe("spoons are a quantity", () => {
     const result = parseFood("2 teaspoons of pesto");
 
     expect(result.items[0].grams).toBeCloseTo(10, 1);
-    expect(result.items[0].fat).toBeCloseTo(4.6, 1);
+    expect(result.items[0].fat).toBeCloseTo(4.5, 1);
   });
 
   test("uses the food's own tablespoon weight where it has one", () => {
@@ -223,9 +223,9 @@ describe("the whole sentence Joe actually typed", () => {
     const sum = (key: "calories" | "protein" | "fat" | "fibre") => items.reduce((total, item) => total + item[key], 0);
 
     // Was 922 kcal / 32.6g protein / 52.5g fat: one 64g thigh and 100g of pesto.
-    expect(sum("calories")).toBeCloseTo(878.7, 0);
-    expect(sum("protein")).toBeCloseTo(82.5, 1);
-    expect(sum("fat")).toBeCloseTo(27.6, 1);
-    expect(sum("fibre")).toBeCloseTo(3.6, 1);
+    expect(sum("calories")).toBeCloseTo(870.3, 0);
+    expect(sum("protein")).toBeCloseTo(84.4, 1);
+    expect(sum("fat")).toBeCloseTo(27.5, 1);
+    expect(sum("fibre")).toBeCloseTo(3.1, 1);
   });
 });
