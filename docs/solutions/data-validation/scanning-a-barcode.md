@@ -57,6 +57,32 @@ be disabled by one. `aliasCollision` checks both directions: a new "oil" would b
 test I wrote myself — "english butter" is unusable as a name, because the stored "butter"
 claims the word first.
 
+## Scanning has to end in a logged meal
+
+The first version stopped at a preview further down the page: a scan saved the food, filled the
+add-food box and left the actual logging to a button Joe had to go and find. Scanning something
+and saying "240g of that" is one intention, not two, so the scan sheet now shows what the
+amount comes to and logs it — with the meal selector alongside, because the one on the page is
+behind the overlay and a dinner scan was landing in lunch.
+
+The running total goes through `parseFood` against the food about to be saved rather than
+multiplying in the component. One code path means the figures in the sheet and the figures in
+the diary cannot come apart.
+
+## A scanned food outranks a stocked one
+
+Refusing a clashing name was the wrong call, and the first real use showed it: Joe went to scan
+salmon, and "salmon", "salmon fillet" and "sainsbury's salmon" were all rejected because the
+app already had a generic `salmon` entry. There was no obvious way forward.
+
+The pack in his hand is the more specific truth — a stored food is at best the same reading
+taken earlier, from a product he may no longer buy. So a scan takes the name, the app says
+plainly what it has taken over, and scanned foods sort ahead of `FOODS` in `parseFood` and
+`lookupFood` so the precedence is real rather than advisory.
+
+Clashing with **another scan** is still refused. There is no more-specific one of the two, and
+rescanning a barcode replaces its entry anyway, so he never needs it.
+
 ## Verification
 
 Both decoder paths were driven end to end against a real EAN-13 (5016805010255, the Veetee

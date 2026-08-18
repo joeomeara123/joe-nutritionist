@@ -206,9 +206,10 @@ export function parseFood(text: string, extra: Food[] = []): { items: ParsedFood
     residue = residue.slice(0, start) + " ".repeat(end - start) + residue.slice(end);
   };
 
-  // Scanned foods sit after the stocked ones so `FOODS`' deliberate ordering still holds —
-  // the cooking fats stay last, where their short aliases cannot shadow a longer name.
-  for (const food of [...FOODS, ...extra]) {
+  // Scanned foods go first, so a product Joe has actually scanned wins the name over a generic
+  // stored entry — his salmon rather than the app's idea of salmon. `FOODS`' own ordering is
+  // unchanged behind them, so the cooking fats still sit last among the stocked foods.
+  for (const food of [...extra, ...FOODS]) {
     let alias: string | undefined;
     let aliasIndex = -1;
     for (const candidate of food.aliases) {

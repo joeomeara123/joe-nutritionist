@@ -72,7 +72,7 @@ export function lookupFood(query: string, pantry: Food[] = []): Food | null {
   const wanted = query.trim().toLowerCase();
   if (!wanted) return null;
 
-  const catalogue = [...FOODS, ...pantry];
+  const catalogue = [...pantry, ...FOODS];
   const exact = catalogue.find((food) => food.aliases.includes(wanted) || food.name.toLowerCase() === wanted);
   if (exact) return exact;
 

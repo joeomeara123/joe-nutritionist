@@ -283,10 +283,16 @@ export default function Home() {
     setDiary((current) => ({ ...current, [selectedDate]: [...(current[selectedDate] || []), meal] }));
   }
 
-  /** A scanned product becomes a food, then optionally goes straight into the preview — the
-   *  same path as typing it, so the chips, the assumed-amount flags and the log button are
-   *  all the code that already works. */
-  function saveScannedFood(food: PantryFood, amount: string) {
+  /**
+   * A scanned product becomes a food, and — when Joe stated an amount — the meal goes straight
+   * into the diary from the scanner.
+   *
+   * It used to stop at a preview further down the page, which meant scanning something and
+   * saying "240g of that" still left the actual logging to a button he had to go and find.
+   * Either way the amount goes through `parseFood` rather than being multiplied here, so the
+   * figures in the scan sheet and the ones in the diary cannot come apart.
+   */
+  function saveScannedFood(food: PantryFood, amount: string, log: boolean) {
     const nextPantry = [...pantry.filter((entry) => entry.barcode !== food.barcode), food];
     setPantry(nextPantry);
     setScanning(false);
@@ -297,6 +303,25 @@ export default function Home() {
     }
     const text = `${amount} ${food.name}`;
     const parsed = parseFood(text, pantryFoods(nextPantry));
+
+    if (log && parsed.items.length) {
+      const now = new Date();
+      const meal: Meal = {
+        id: `${Date.now()}`,
+        name: mealName,
+        text,
+        time: now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+        items: parsed.items,
+        macros: total(parsed.items),
+      };
+      setDiary((current) => ({ ...current, [selectedDate]: [...(current[selectedDate] || []), meal] }));
+      setParseError("");
+      requestAnimationFrame(() => document.querySelector(".meals-section")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+      return;
+    }
+
+    // No amount stated, or it did not read as one: fall back to the preview so he can fix it.
+    setEntryMode("describe");
     setEntry(text);
     setPreviewItems(parsed.items);
     setParseError(parsed.items.length ? "" : `Saved ${food.name}, but I couldn't read “${amount}” as an amount. Try “150g”.`);
@@ -432,12 +457,11 @@ export default function Home() {
       </section>
 
       <section className="entry-card" id="meal-entry">
-        <div className="entry-heading"><div><p className="eyebrow">Add food</p><h2>{entryMode === "describe" ? "Say exactly what you ate." : "Type the numbers yourself."}</h2><p className="entry-example">{entryMode === "describe" ? "“192g cooked chicken, one Veetee rice pot and Nando's sauce.”" : "For a restaurant meal, or anything the parser can’t read. Your figures beat anything it works out."}</p><div className="entry-modes" role="group" aria-label="How to add this food"><button type="button" className={entryMode === "describe" ? "active" : ""} onClick={() => { setEntryMode("describe"); setParseError(""); }}>Describe it</button><button type="button" className={entryMode === "macros" ? "active" : ""} onClick={() => { setEntryMode("macros"); setPreviewItems([]); setParseError(""); }}>Type the macros</button></div></div><div className="meal-selector"><button type="button" className={mealName === "Lunch" ? "active" : ""} onClick={() => setMealName("Lunch")}>Lunch</button><button type="button" className={mealName === "Dinner" ? "active" : ""} onClick={() => setMealName("Dinner")}>Dinner</button><button type="button" className={mealName === "Snack" ? "active" : ""} onClick={() => setMealName("Snack")}>Snack</button></div></div>
+        <div className="entry-heading"><div><p className="eyebrow">Add food</p><h2>{entryMode === "describe" ? "Say exactly what you ate." : "Type the numbers yourself."}</h2><p className="entry-example">{entryMode === "describe" ? "“192g cooked chicken, one Veetee rice pot and Nando's sauce.”" : "For a restaurant meal, or anything the parser can’t read. Your figures beat anything it works out."}</p><div className="entry-modes" role="group" aria-label="How to add this food"><button type="button" className={entryMode === "describe" ? "active" : ""} onClick={() => { setEntryMode("describe"); setParseError(""); }}>Describe it</button><button type="button" className={entryMode === "macros" ? "active" : ""} onClick={() => { setEntryMode("macros"); setPreviewItems([]); setParseError(""); }}>Type the macros</button><button type="button" className="entry-scan" onClick={() => setScanning(true)} aria-label="Scan a barcode">▥ Scan</button></div></div><div className="meal-selector"><button type="button" className={mealName === "Lunch" ? "active" : ""} onClick={() => setMealName("Lunch")}>Lunch</button><button type="button" className={mealName === "Dinner" ? "active" : ""} onClick={() => setMealName("Dinner")}>Dinner</button><button type="button" className={mealName === "Snack" ? "active" : ""} onClick={() => setMealName("Snack")}>Snack</button></div></div>
         {entryMode === "describe" ? (
           <form className="entry-row" onSubmit={previewEntry}>
             <input value={entry} onChange={(event) => setEntry(event.target.value)} aria-label="Describe your food" placeholder="e.g. 200g cooked mince, one rice pot and 100g peppers" />
             <button className={`mic-button ${listening ? "listening" : ""}`} type="button" onClick={toggleVoice} aria-label={listening ? "Stop listening" : "Start voice entry"}><span className="mic-icon">{listening ? "■" : "●"}</span><span>{listening ? "Listening…" : "Speak"}</span></button>
-            <button className="mic-button scan-button" type="button" onClick={() => setScanning(true)} aria-label="Scan a barcode"><span className="mic-icon">▥</span><span>Scan</span></button>
             <button className="check-button" type="submit">Check meal</button>
           </form>
         ) : (
@@ -497,7 +521,7 @@ export default function Home() {
         </div>
       </section>
 
-      {scanning && <Scanner pantry={pantry} onSave={saveScannedFood} onClose={() => setScanning(false)} />}
+      {scanning && <Scanner pantry={pantry} mealName={mealName} onMealName={setMealName} onSave={saveScannedFood} onClose={() => setScanning(false)} />}
 
       {pantry.length > 0 && (
         <section className="pantry-section">

@@ -110,12 +110,18 @@ as "not published" and never as a measured zero — it is a hard 30g minimum, an
 eats it. A product with no energy figure is refused outright rather than becoming a
 zero-calorie food.
 
-Saving writes a **pantry** entry to `localStorage` under `joe-gym-pantry-v1`, appended to
-`FOODS` wherever it is read. So a scanned jar behaves like anything else: "40g of it" works in
+State an amount and the sheet shows what it comes to and logs it as the meal you pick, without
+leaving the scanner. **Just save it** adds the food without logging anything.
+
+Saving writes a **pantry** entry to `localStorage` under `joe-gym-pantry-v1`, and scanned foods
+sort *ahead* of `FOODS` wherever it is read. So a scanned jar behaves like anything else: "40g of it" works in
 the add-food box, in a sentence mixing it with stocked foods, and in the chat. `FOODS` itself
-is never mutated — its order is load-bearing and a test asserts every entry is sourced. New
-names are collision-checked in both directions, because the parser matches whole words and a
-new "oil" would be swallowed by "olive oil".
+is never mutated — its order is load-bearing and a test asserts every entry is sourced.
+
+A scan may take a stocked food's name, and wins it: scan a salmon and call it "salmon", and
+that is what "200g salmon" means from then on. The pack in your hand is more specific than a
+generic entry sourced months ago, and the app says what it has taken over. Two *scans* sharing
+a name is still refused — there is no more-specific one of those.
 
 A barcode that is not in the database opens the same panel with empty fields, saved against
 that code — so a miss costs one reading, not one per meal.

@@ -322,3 +322,16 @@ footer span { font-family:var(--font-geist-mono),monospace; }
   .entry-modes button { flex:1; }
   .typed-entry .scan-field span { width:auto; }
 }
+
+/* ---- Logging straight from the scanner ---- */
+.entry-scan { margin-left:4px; padding:7px 14px; border:0; border-radius:999px; color:var(--muted); background:transparent; font-family:inherit; font-size:11.5px; font-weight:600; cursor:pointer; }
+.entry-scan:hover { color:var(--ink); }
+.scan-total { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 14px; padding:13px 15px; border:1px solid var(--ink); border-radius:14px; background:white; }
+.scan-total > strong:first-child { width:100%; font-size:12px; letter-spacing:-.02em; }
+.scan-total span { color:var(--muted); font-size:10.5px; }
+.scan-total span strong { color:var(--ink); font-size:13px; }
+.scan-meal { align-self:flex-start; }
+@media (max-width:720px) {
+  .scan-actions { flex-wrap:wrap; }
+  .scan-actions .log-button { flex-basis:100%; order:-1; }
+}

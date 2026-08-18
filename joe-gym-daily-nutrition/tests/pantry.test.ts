@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { aliasCollision, amountForParser, buildPantryFood, readPantry, toFood, writePantry, type PantryFood } from "../lib/pantry";
+import { amountForParser, buildPantryFood, checkName, readPantry, toFood, writePantry, type PantryFood } from "../lib/pantry";
 import { parseFood } from "../lib/food-parser";
 import { lookupFood, priceMeal, type DayState } from "../lib/nutrition-tools";
 import { readProduct } from "../lib/barcode";
@@ -63,42 +63,73 @@ describe("a scanned product becoming a food", () => {
     });
 
     expect(entry.servingGrams).toBe(10);
-    // "english butter" would have been refused as a name — the stored "butter" swallows it.
-    expect(aliasCollision("english butter")).toBe("Butter");
+    // "english butter" overlaps the stored "butter", so a scan taking it shadows that entry.
+    expect(checkName("english butter")).toEqual({ ok: true, shadows: "Butter" });
     expect(parseFood("2 kerrygold", [toFood(entry)]).items[0].grams).toBe(20);
   });
 });
 
 describe("naming a scanned food", () => {
-  test("refuses a name that already means something else", () => {
-    expect(aliasCollision("peanut butter")).toBe("Peanut butter");
-    expect(aliasCollision("chicken")).toBe("Cooked chicken thighs");
+  /**
+   * The pack in Joe's hand is the more specific truth, so it takes the name. Refusing it was
+   * the wrong call — the first thing he tried to scan was salmon, and every sensible name for
+   * it was rejected because the app already had a generic entry.
+   */
+  test("lets a scan take a stocked food's name, and says which", () => {
+    expect(checkName("salmon")).toEqual({ ok: true, shadows: "Cooked salmon" });
+    expect(checkName("peanut butter")).toEqual({ ok: true, shadows: "Peanut butter" });
   });
 
   /** "oil" would be swallowed by "olive oil"; "yogurt" is inside two stored aliases. */
-  test("refuses a name that sits inside an existing one, and the reverse", () => {
-    expect(aliasCollision("oil")).not.toBeNull();
-    expect(aliasCollision("yogurt")).not.toBeNull();
-    expect(aliasCollision("extra virgin olive oil that i bought")).not.toBeNull();
+  test("spots a name that sits inside an existing one, and the reverse", () => {
+    expect(checkName("oil")).toEqual({ ok: true, shadows: "Olive oil" });
+    expect(checkName("extra virgin olive oil that i bought")).toEqual({ ok: true, shadows: "Olive oil" });
   });
 
-  test("accepts a name that is genuinely new", () => {
-    expect(aliasCollision("greek yogurt")).toBeNull();
-    expect(aliasCollision("skyr")).toBeNull();
+  test("says nothing when a name is genuinely new", () => {
+    expect(checkName("greek yogurt")).toEqual({ ok: true });
+    expect(checkName("skyr")).toEqual({ ok: true });
   });
 
+  /** Two scans answering to one word is just ambiguity — there is no more-specific one. */
   test("refuses a name another scanned food already answers to", () => {
-    expect(aliasCollision("greek yogurt", [yogurt()])).toBe("greek yogurt");
+    expect(checkName("greek yogurt", [yogurt()])).toEqual({ ok: false, problem: "already-scanned", food: "greek yogurt" });
   });
 
   test("lets a product keep its own name when it is rescanned", () => {
-    expect(aliasCollision("greek yogurt", [yogurt()], "01206111")).toBeNull();
+    expect(checkName("greek yogurt", [yogurt()], "01206111")).toEqual({ ok: true });
   });
 
   test("refuses a name with nothing in it", () => {
-    expect(aliasCollision("")).not.toBeNull();
-    expect(aliasCollision("  ")).not.toBeNull();
-    expect(aliasCollision("500")).not.toBeNull();
+    for (const name of ["", "  ", "500"]) expect(checkName(name)).toEqual({ ok: false, problem: "not-a-name" });
+  });
+});
+
+describe("a scanned food outranking a stocked one", () => {
+  function salmon(): PantryFood {
+    return buildPantryFood({
+      barcode: "5000169001234",
+      name: "salmon",
+      per100g: { calories: 203, protein: 22.4, carbs: 0, fat: 12.7, fibre: 0 },
+      fibreUnknown: false,
+      edited: true,
+    });
+  }
+
+  test("240g of the scanned salmon is priced from the pack, not the stored entry", () => {
+    const parsed = parseFood("240g salmon", [toFood(salmon())]);
+
+    expect(parsed.items).toHaveLength(1);
+    expect(parsed.items[0].id).toBe("pantry:5000169001234");
+    expect(parsed.items[0].protein).toBeCloseTo(53.8, 1);
+    // The stored salmon is weighed cooked and would have converted the weight; the scanned
+    // pack has no cooked ratio, so 240g stays 240g.
+    expect(parsed.items[0].grams).toBe(240);
+  });
+
+  test("the chat resolves the same one", () => {
+    expect(lookupFood("salmon", [toFood(salmon())])?.id).toBe("pantry:5000169001234");
+    expect(lookupFood("salmon")?.id).toBe("salmon");
   });
 });
 

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ScanResult, ScannedProduct } from "@/lib/barcode";
-import { aliasCollision, amountForParser, buildPantryFood, NOT_A_NAME, type PantryFood } from "@/lib/pantry";
+import { amountForParser, buildPantryFood, checkName, toFood, type PantryFood } from "@/lib/pantry";
+import { parseFood } from "@/lib/food-parser";
 import { MACRO_FIELDS, asNumber, EMPTY_DRAFT, type MacroDraft } from "@/lib/macros";
 import MacroFields from "./macro-fields";
 
@@ -59,13 +60,20 @@ const draftFrom = (product?: ScannedProduct): Draft => ({
   amount: "",
 });
 
+const round = (value: number, places = 0) => Number(value.toFixed(places));
+
 export default function Scanner({
   pantry,
+  mealName,
+  onMealName,
   onSave,
   onClose,
 }: {
   pantry: PantryFood[];
-  onSave: (entry: PantryFood, amount: string) => void;
+  /** Which meal a straight-from-the-scanner log lands in. */
+  mealName: string;
+  onMealName: (name: string) => void;
+  onSave: (entry: PantryFood, amount: string, log: boolean) => void;
   onClose: () => void;
 }) {
   const [stage, setStage] = useState<Stage>({ step: "scan" });
@@ -148,13 +156,33 @@ export default function Scanner({
   }, [scanning, lookup]);
 
   const product = stage.step === "confirm" && stage.result.found ? stage.result.product : undefined;
-  const clash = stage.step === "confirm" ? aliasCollision(draft.name, pantry, stage.barcode) : null;
+  const verdict = stage.step === "confirm" ? checkName(draft.name, pantry, stage.barcode) : null;
   const numbers = MACRO_FIELDS.map((field) => asNumber(draft[field.key]));
   const [calories, protein, carbs, fat, fibre] = numbers;
   const complete = calories !== null && protein !== null && carbs !== null && fat !== null;
-  const canSave = stage.step === "confirm" && !clash && complete;
+  const canSave = stage.step === "confirm" && verdict?.ok === true && complete;
 
-  function save() {
+  /**
+   * What the stated amount comes to, worked out the same way the diary does it — one parse of
+   * "240g salmon" against the food about to be saved. Going through the parser rather than
+   * multiplying here is what stops the sheet and the logged meal ever disagreeing.
+   */
+  const candidate = canSave
+    ? buildPantryFood({
+        barcode: stage.step === "confirm" ? stage.barcode : "",
+        name: draft.name,
+        per100g: { calories: calories!, protein: protein!, carbs: carbs!, fat: fat!, fibre: fibre ?? 0 },
+        fibreUnknown: fibre === null,
+        edited: true,
+        product,
+      })
+    : null;
+  const portion =
+    candidate && draft.amount.trim()
+      ? parseFood(`${amountForParser(draft.amount)} ${candidate.name}`, [toFood(candidate)]).items[0]
+      : undefined;
+
+  function save(log: boolean) {
     if (stage.step !== "confirm" || !canSave) return;
     // "Edited" means these numbers came from Joe rather than the database — either he typed
     // them all in himself, or he corrected one. That is a better source, and it is recorded
@@ -174,7 +202,7 @@ export default function Scanner({
       edited,
       product,
     });
-    onSave(entry, amountForParser(draft.amount));
+    onSave(entry, amountForParser(draft.amount), log);
   }
 
   return (
@@ -253,11 +281,17 @@ export default function Scanner({
                 aria-label="What to call this food"
               />
             </label>
-            {clash && (
+            {verdict && !verdict.ok && (
               <p className="scan-clash" role="alert">
-                {clash === NOT_A_NAME
+                {verdict.problem === "not-a-name"
                   ? "Give it a name you'd actually type."
-                  : `That already means “${clash}” to the app. Pick something else, or the two will shadow each other.`}
+                  : `You've already scanned something called “${verdict.food}”. Pick another name, or rescan that one to change it.`}
+              </p>
+            )}
+            {verdict?.ok && verdict.shadows && (
+              <p className="scan-clash">
+                From now on that name means this pack, not the stored “{verdict.shadows}”. Usually what you want — it&apos;s
+                the one you actually have.
               </p>
             )}
 
@@ -284,10 +318,33 @@ export default function Scanner({
               />
             </label>
 
+            {/* The selector on the page is behind this overlay, and logging from here means the
+                meal it lands in matters — so it comes along rather than defaulting to lunch. */}
+            {portion && (
+              <div className="meal-selector scan-meal">
+                {["Lunch", "Dinner", "Snack"].map((name) => (
+                  <button type="button" key={name} className={mealName === name ? "active" : ""} onClick={() => onMealName(name)}>{name}</button>
+                ))}
+              </div>
+            )}
+            {portion && (
+              <div className="scan-total" aria-label="What that amount comes to">
+                <strong>{portion.display}</strong>
+                <span><strong>{round(portion.calories)}</strong> kcal</span>
+                <span><strong>{round(portion.protein, 1)}g</strong> protein</span>
+                <span><strong>{round(portion.carbs, 1)}g</strong> carbs</span>
+                <span><strong>{round(portion.fat, 1)}g</strong> fat</span>
+                <span><strong>{round(portion.fibre, 1)}g</strong> fibre</span>
+              </div>
+            )}
+
             <div className="scan-actions">
               <button type="button" className="ghost-button" onClick={() => setStage({ step: "scan" })}>Scan another</button>
-              <button type="button" className="log-button" onClick={save} disabled={!canSave}>
-                {draft.amount.trim() ? "Save and check it" : "Save to my foods"}
+              {portion && (
+                <button type="button" className="ghost-button" onClick={() => save(false)}>Just save it</button>
+              )}
+              <button type="button" className="log-button" onClick={() => save(Boolean(portion))} disabled={!canSave}>
+                {portion ? `Log as ${mealName.toLowerCase()}` : "Save to my foods"}
               </button>
             </div>
           </div>

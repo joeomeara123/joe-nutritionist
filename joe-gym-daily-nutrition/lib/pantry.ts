@@ -29,8 +29,6 @@ export type PantryFood = {
 };
 
 export const PANTRY_KEY = "joe-gym-pantry-v1";
-/** Returned by `aliasCollision` when the problem is the name itself, not a clash. */
-export const NOT_A_NAME = "not a name";
 
 type ScannedLike = {
   name?: string;
@@ -110,30 +108,47 @@ export function toFood(entry: PantryFood): Food {
 export const pantryFoods = (pantry: PantryFood[]): Food[] => pantry.map(toFood);
 
 /**
- * Is this name already spoken for?
- *
- * Checked in both directions, because the parser matches on whole words: a new "oil" would be
- * swallowed by the stored "olive oil", and a new "protein yogurt smoothie" would swallow the
- * stored "protein yogurt". Either way one of the two foods silently stops being reachable,
- * which is worse than making Joe pick a different word now.
- *
- * Returns the name of whatever it clashes with, or null when the name is free.
+ * Whether a name is already spoken for, checked in both directions because the parser matches
+ * on whole words: a new "oil" would be swallowed by the stored "olive oil", and a new "protein
+ * yogurt smoothie" would swallow the stored "protein yogurt".
  */
-export function aliasCollision(name: string, pantry: PantryFood[] = [], ignoreBarcode?: string): string | null {
-  const wanted = name.trim().toLowerCase();
-  if (wanted.length < 3 || !/[a-z]{3}/.test(wanted)) return NOT_A_NAME;
-
-  const existing = [
-    ...FOODS,
-    ...pantry.filter((entry) => entry.barcode !== ignoreBarcode).map(toFood),
-  ];
-
-  for (const food of existing) {
+function collidesWith(wanted: string, foods: Food[]): string | null {
+  for (const food of foods) {
     for (const alias of food.aliases) {
       if (alias === wanted || findAlias(wanted, alias) !== -1 || findAlias(alias, wanted) !== -1) return food.name;
     }
   }
   return null;
+}
+
+export type NameVerdict =
+  | { ok: true; shadows?: string }
+  | { ok: false; problem: "not-a-name" }
+  | { ok: false; problem: "already-scanned"; food: string };
+
+/**
+ * Can Joe call a scanned product this?
+ *
+ * Clashing with a **stocked** food is allowed, and the scanned one wins. Refusing it was the
+ * wrong call: the first thing Joe tried to scan was salmon, and "salmon", "salmon fillet" and
+ * "sainsbury's salmon" were all rejected because the app already had a generic entry. But the
+ * pack in his hand is the more specific truth — a stored food is at best the same reading
+ * taken earlier, from a product he may no longer buy. So the scan takes the name and the app
+ * says plainly what it has taken over.
+ *
+ * Clashing with **another scan** is still refused. There is no specific-beats-generic story
+ * there, just two things answering to one word — and rescanning the same barcode replaces its
+ * entry anyway, so he never needs to.
+ */
+export function checkName(name: string, pantry: PantryFood[] = [], ignoreBarcode?: string): NameVerdict {
+  const wanted = name.trim().toLowerCase();
+  if (wanted.length < 3 || !/[a-z]{3}/.test(wanted)) return { ok: false, problem: "not-a-name" };
+
+  const scanned = collidesWith(wanted, pantry.filter((entry) => entry.barcode !== ignoreBarcode).map(toFood));
+  if (scanned) return { ok: false, problem: "already-scanned", food: scanned };
+
+  const stocked = collidesWith(wanted, FOODS);
+  return stocked ? { ok: true, shadows: stocked } : { ok: true };
 }
 
 type StorageLike = { getItem(key: string): string | null; setItem(key: string, value: string): void };

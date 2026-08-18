@@ -53,7 +53,9 @@ const ITEM_SCHEMA = {
 } as const;
 
 function foodCatalogue(pantry: Food[]) {
-  return [...FOODS, ...pantry].map((food) => {
+  // Scanned foods first, matching the order the parser resolves them in: a name Joe has
+  // scanned means that pack, not the stored entry it took the name from.
+  return [...pantry, ...FOODS].map((food) => {
     const basis = food.basis === "portion" ? `per ${food.portionGrams}g ${food.portionLabel}` : "per 100g";
     // A 100g-basis food can still have a serving size; the model needs it to use `portions`.
     const serving = food.basis === "100g" && food.portionGrams ? `, 1 ${food.portionLabel} = ${food.portionGrams}g` : "";
@@ -113,6 +115,8 @@ If he is standing there holding the packet, mention that tapping Scan in the app
 Price the whole meal in one call, mixing stocked and looked-up foods freely. Do not make him choose between an answer and an accurate one.
 
 Tool results can carry an \`assumed\` field on an item. \`"quantity"\` means he named a food without an amount; \`"portionSize"\` means he counted pieces of something whose pieces vary — a chicken thigh is stored at 64g, but the pack itself says sizes vary, so three thighs is a count and not a weight. When an assumed item is a meaningful part of the meal, say what you assumed in a half-sentence and offer to reprice if he weighs it. Do not hide it, and do not make a fuss about it either.
+
+Anything marked SCANNED is a product Joe scanned himself, and it is listed first. Where a scanned food shares a name with a stored one, the scanned one is what he has — use it and ignore the stored entry of that name.
 
 Most figures below come straight off the Sainsbury's label for the product he buys. The few marked ESTIMATE do not — Sainsbury's publishes no table for those. Use them normally, but if one is the main thing driving your answer, mention in passing that it is an estimate.
 
