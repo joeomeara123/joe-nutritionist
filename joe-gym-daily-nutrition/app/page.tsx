@@ -4,10 +4,32 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { FOODS, parseFood, scaled, type Macros, type ParsedFood } from "@/lib/food-parser";
 import { recommendDay, type Suggestion } from "@/lib/recommendations";
 import { pantryFoods, readPantry, writePantry, type PantryFood } from "@/lib/pantry";
+import { EMPTY_DRAFT, draftFromMacros, readMacros, type MacroDraft } from "@/lib/macros";
 import Chat from "./chat";
+import MacroFields from "./macro-fields";
 import Scanner from "./scanner";
 
-type Meal = { id: string; name: string; text: string; time: string; items: ParsedFood[]; macros: Macros };
+/**
+ * `macros` is the only figure the day totals read, so it is the single authority — `items` are
+ * what produced it, not a second source of truth.
+ *
+ * When Joe types the numbers himself they diverge on purpose, and the divergence is the point:
+ * `entered: "hand"` says the total came from him, and `parsed` keeps whatever the parser had
+ * worked out so the correction can be inspected and undone. That is only safe because it is
+ * labelled — an unlabelled disagreement between two totals is the `recommendations.ts` bug.
+ */
+type Meal = {
+  id: string;
+  name: string;
+  text: string;
+  time: string;
+  items: ParsedFood[];
+  macros: Macros;
+  entered?: "hand";
+  parsed?: Macros;
+  /** He gave no fibre figure, so the 0 in `macros` is a placeholder rather than a reading. */
+  fibreUnknown?: boolean;
+};
 type Diary = Record<string, Meal[]>;
 
 const TARGETS: Macros = { calories: 1800, protein: 160, carbs: 155, fat: 60, fibre: 30 };
@@ -27,8 +49,18 @@ function total(items: ParsedFood[] | Meal[]): Macros {
   return items.reduce((sum, item) => addMacros(sum, "macros" in item ? item.macros : item), ZERO);
 }
 
+/**
+ * Foods are resolved by id, not by position. `FOODS[13]` was Nando's sauce until a food was
+ * inserted above it, after which the example meal silently said "Nando's sauce" and logged
+ * 20g of oven chips — the card and the numbers describing different meals with nothing
+ * marking which was true.
+ */
 function seedMeal(): Meal {
-  const items = [scaled(FOODS[0], 192), scaled(FOODS[4], 130), scaled(FOODS[13], 20)];
+  const wanted: Array<[string, number]> = [["chicken-thigh", 192], ["sticky-rice", 130], ["nandos", 20]];
+  const items = wanted.flatMap(([id, grams]) => {
+    const food = FOODS.find((entry) => entry.id === id);
+    return food ? [scaled(food, grams)] : [];
+  });
   return { id: "monday-lunch", name: "Lunch", text: "192g cooked chicken, one Veetee sticky rice pot and Nando's sauce", time: "12:30", items, macros: total(items) };
 }
 
@@ -78,6 +110,11 @@ export default function Home() {
   // scanned jar behaves like anything else in the app rather than living in its own corner.
   const [pantry, setPantry] = useState<PantryFood[]>([]);
   const [scanning, setScanning] = useState(false);
+  // Typing the macros is the escape hatch for anything the parser cannot read — a restaurant
+  // meal, or a food nobody has a label for.
+  const [entryMode, setEntryMode] = useState<"describe" | "macros">("describe");
+  const [macroDraft, setMacroDraft] = useState<MacroDraft>(EMPTY_DRAFT);
+  const [editing, setEditing] = useState<{ id: string; draft: MacroDraft } | null>(null);
   const recognitionRef = useRef<{ start: () => void; stop: () => void } | null>(null);
 
   useEffect(() => {
@@ -104,8 +141,10 @@ export default function Home() {
   const meals = diary[selectedDate] || [];
   const properMealCount = meals.filter((meal) => meal.name !== "Snack").length;
   const consumed = total(meals);
-  const previewMacros = total(previewItems);
-  const coach = coachMessage(consumed, previewItems.length ? previewMacros : undefined);
+  const typedMacros = entryMode === "macros" ? readMacros(macroDraft) : null;
+  const previewMacros = typedMacros ? typedMacros.macros : total(previewItems);
+  const showPreview = entryMode === "macros" ? typedMacros !== null : previewItems.length > 0;
+  const coach = coachMessage(consumed, showPreview ? previewMacros : undefined);
   const recommendation = recommendDay(consumed, properMealCount, new Date().getHours());
   const recommendationKey = `${selectedDate}:${meals.length}:${consumed.calories}:${consumed.protein}:${consumed.carbs}:${consumed.fat}:${consumed.fibre}`;
   const activeChoiceIndex = recommendationSelection.key === recommendationKey ? recommendationSelection.index % recommendation.choices.length : 0;
@@ -149,6 +188,64 @@ export default function Home() {
     setDiary((current) => ({ ...current, [selectedDate]: [...(current[selectedDate] || []), meal] }));
     setEntry("");
     setPreviewItems([]);
+  }
+
+  /** A meal with no foods in it: the numbers are Joe's, which makes them the best source the
+   *  app has. It carries no items, so nothing later can imply the totals were derived. */
+  function logTypedMeal() {
+    const read = readMacros(macroDraft);
+    if (!read) return;
+    const now = new Date();
+    const meal: Meal = {
+      id: `${Date.now()}`,
+      name: mealName,
+      text: entry.trim() || "Typed in",
+      time: now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      items: [],
+      macros: read.macros,
+      entered: "hand",
+      ...(read.fibreUnknown ? { fibreUnknown: true } : {}),
+    };
+    setDiary((current) => ({ ...current, [selectedDate]: [...(current[selectedDate] || []), meal] }));
+    setEntry("");
+    setMacroDraft(EMPTY_DRAFT);
+    setParseError("");
+  }
+
+  /** Correcting a meal already logged. The parser's original total is kept the first time, so
+   *  the correction stays inspectable and Joe can put it back. */
+  function saveCorrection() {
+    const read = editing && readMacros(editing.draft);
+    if (!editing || !read) return;
+    setDiary((current) => ({
+      ...current,
+      [selectedDate]: (current[selectedDate] || []).map((meal) =>
+        meal.id !== editing.id
+          ? meal
+          : {
+              ...meal,
+              macros: read.macros,
+              entered: "hand" as const,
+              parsed: meal.parsed ?? (meal.items.length ? total(meal.items) : undefined),
+              fibreUnknown: read.fibreUnknown || undefined,
+            },
+      ),
+    }));
+    setEditing(null);
+  }
+
+  function revertCorrection(id: string) {
+    setDiary((current) => ({
+      ...current,
+      // Rebuilt field by field rather than spread: that is what drops `entered`, `parsed` and
+      // `fibreUnknown`, so a reverted meal is indistinguishable from one never corrected.
+      [selectedDate]: (current[selectedDate] || []).map((meal) =>
+        meal.id !== id || !meal.parsed
+          ? meal
+          : { id: meal.id, name: meal.name, text: meal.text, time: meal.time, items: meal.items, macros: meal.parsed },
+      ),
+    }));
+    setEditing(null);
   }
 
   /** One-time migration path off the old Codex deployment. The diary only ever lived in
@@ -335,19 +432,32 @@ export default function Home() {
       </section>
 
       <section className="entry-card" id="meal-entry">
-        <div className="entry-heading"><div><p className="eyebrow">Add food</p><h2>Say exactly what you ate.</h2><p className="entry-example">“192g cooked chicken, one Veetee rice pot and Nando&apos;s sauce.”</p></div><div className="meal-selector"><button type="button" className={mealName === "Lunch" ? "active" : ""} onClick={() => setMealName("Lunch")}>Lunch</button><button type="button" className={mealName === "Dinner" ? "active" : ""} onClick={() => setMealName("Dinner")}>Dinner</button><button type="button" className={mealName === "Snack" ? "active" : ""} onClick={() => setMealName("Snack")}>Snack</button></div></div>
-        <form className="entry-row" onSubmit={previewEntry}>
-          <input value={entry} onChange={(event) => setEntry(event.target.value)} aria-label="Describe your food" placeholder="e.g. 200g cooked mince, one rice pot and 100g peppers" />
-          <button className={`mic-button ${listening ? "listening" : ""}`} type="button" onClick={toggleVoice} aria-label={listening ? "Stop listening" : "Start voice entry"}><span className="mic-icon">{listening ? "■" : "●"}</span><span>{listening ? "Listening…" : "Speak"}</span></button>
-          <button className="mic-button scan-button" type="button" onClick={() => setScanning(true)} aria-label="Scan a barcode"><span className="mic-icon">▥</span><span>Scan</span></button>
-          <button className="check-button" type="submit">Check meal</button>
-        </form>
+        <div className="entry-heading"><div><p className="eyebrow">Add food</p><h2>{entryMode === "describe" ? "Say exactly what you ate." : "Type the numbers yourself."}</h2><p className="entry-example">{entryMode === "describe" ? "“192g cooked chicken, one Veetee rice pot and Nando's sauce.”" : "For a restaurant meal, or anything the parser can’t read. Your figures beat anything it works out."}</p><div className="entry-modes" role="group" aria-label="How to add this food"><button type="button" className={entryMode === "describe" ? "active" : ""} onClick={() => { setEntryMode("describe"); setParseError(""); }}>Describe it</button><button type="button" className={entryMode === "macros" ? "active" : ""} onClick={() => { setEntryMode("macros"); setPreviewItems([]); setParseError(""); }}>Type the macros</button></div></div><div className="meal-selector"><button type="button" className={mealName === "Lunch" ? "active" : ""} onClick={() => setMealName("Lunch")}>Lunch</button><button type="button" className={mealName === "Dinner" ? "active" : ""} onClick={() => setMealName("Dinner")}>Dinner</button><button type="button" className={mealName === "Snack" ? "active" : ""} onClick={() => setMealName("Snack")}>Snack</button></div></div>
+        {entryMode === "describe" ? (
+          <form className="entry-row" onSubmit={previewEntry}>
+            <input value={entry} onChange={(event) => setEntry(event.target.value)} aria-label="Describe your food" placeholder="e.g. 200g cooked mince, one rice pot and 100g peppers" />
+            <button className={`mic-button ${listening ? "listening" : ""}`} type="button" onClick={toggleVoice} aria-label={listening ? "Stop listening" : "Start voice entry"}><span className="mic-icon">{listening ? "■" : "●"}</span><span>{listening ? "Listening…" : "Speak"}</span></button>
+            <button className="mic-button scan-button" type="button" onClick={() => setScanning(true)} aria-label="Scan a barcode"><span className="mic-icon">▥</span><span>Scan</span></button>
+            <button className="check-button" type="submit">Check meal</button>
+          </form>
+        ) : (
+          <div className="typed-entry">
+            <label className="scan-field"><span>What was it?</span>
+              <input value={entry} onChange={(event) => setEntry(event.target.value)} aria-label="What the meal was" placeholder="e.g. Nando's — optional" />
+            </label>
+            <MacroFields draft={macroDraft} onChange={setMacroDraft} legend="The whole meal" context="for the whole meal" fibrePlaceholder="if you know it" />
+          </div>
+        )}
         {parseError && <p className="parse-error" role="alert">{parseError}</p>}
-        {previewItems.length > 0 && (
+        {showPreview && (
           <div className="preview-panel">
-            <div className="preview-foods">{previewItems.map((item) => <span key={item.id} className={item.assumed ? "assumed" : ""}>{item.name}<strong>{item.display}</strong>{item.assumed === "quantity" && <em>assumed — say the amount</em>}{item.assumed === "portionSize" && <em>assumed size — weigh for exact</em>}{item.weighedGrams !== undefined && <em className="note">from {round(item.weighedGrams)}g {item.weighedAs}</em>}</span>)}</div>
+            {entryMode === "describe" ? (
+              <div className="preview-foods">{previewItems.map((item) => <span key={item.id} className={item.assumed ? "assumed" : ""}>{item.name}<strong>{item.display}</strong>{item.assumed === "quantity" && <em>assumed — say the amount</em>}{item.assumed === "portionSize" && <em>assumed size — weigh for exact</em>}{item.weighedGrams !== undefined && <em className="note">from {round(item.weighedGrams)}g {item.weighedAs}</em>}</span>)}</div>
+            ) : (
+              <div className="preview-foods"><span>{entry.trim() || "Typed in"}<strong>your figures</strong>{typedMacros?.fibreUnknown && <em>no fibre figure — counts as 0</em>}</span></div>
+            )}
             <div className="preview-totals"><span><strong>{round(previewMacros.calories)}</strong> kcal</span><span><strong>{round(previewMacros.protein, 1)}g</strong> protein</span><span><strong>{round(previewMacros.carbs, 1)}g</strong> carbs</span><span><strong>{round(previewMacros.fat, 1)}g</strong> fat</span><span><strong>{round(previewMacros.fibre, 1)}g</strong> fibre</span></div>
-            <div className="preview-actions"><button type="button" className="ghost-button" onClick={() => setPreviewItems([])}>Change it</button><button type="button" className="log-button" onClick={logMeal}>Log this {mealName.toLowerCase()}</button></div>
+            <div className="preview-actions"><button type="button" className="ghost-button" onClick={() => { setPreviewItems([]); setMacroDraft(EMPTY_DRAFT); }}>Change it</button><button type="button" className="log-button" onClick={entryMode === "macros" ? logTypedMeal : logMeal}>Log this {mealName.toLowerCase()}</button></div>
           </div>
         )}
       </section>
@@ -356,11 +466,32 @@ export default function Home() {
         <div className="section-heading"><div><p className="eyebrow">Today&apos;s diary</p><h2>{meals.length ? `${meals.length} meal${meals.length === 1 ? "" : "s"} logged` : "Nothing logged yet"}</h2></div></div>
         <div className="meal-list">
           {meals.map((meal) => (
-            <article className="meal-card" key={meal.id}>
+            <article className={`meal-card ${meal.entered === "hand" ? "hand-entered" : ""}`} key={meal.id}>
               <div className="meal-time">{meal.time}</div>
-              <div className="meal-copy"><p>{meal.name}</p><h3>{meal.items.map((item) => item.name.replace("Cooked ", "")).join(" + ")}</h3><span>{meal.items.map((item) => `${item.display} ${item.name.toLowerCase()}`).join(" · ")}</span></div>
+              <div className="meal-copy">
+                <p>{meal.name}</p>
+                <h3>{meal.items.length ? meal.items.map((item) => item.name.replace("Cooked ", "")).join(" + ") : meal.text}</h3>
+                <span>{meal.items.length ? meal.items.map((item) => `${item.display} ${item.name.toLowerCase()}`).join(" · ") : "figures you typed in"}</span>
+                {/* A corrected total no longer matches the foods listed above it, so it has to
+                    say so — and say what it was, or the change is unaccountable. */}
+                {meal.entered === "hand" && meal.parsed && <em className="meal-note">corrected by hand — the parser had {round(meal.parsed.calories)} kcal, {round(meal.parsed.protein, 1)}g protein</em>}
+                {meal.fibreUnknown && <em className="meal-note">no fibre figure — counts as 0</em>}
+              </div>
               <div className="meal-numbers"><span><strong>{round(meal.macros.calories)}</strong> kcal</span><span><strong>{round(meal.macros.protein, 1)}g</strong> protein</span></div>
-              <button className="delete-button" type="button" onClick={() => removeMeal(meal.id)} aria-label={`Remove ${meal.name}`}>×</button>
+              <div className="meal-buttons">
+                <button className="delete-button" type="button" onClick={() => setEditing(editing?.id === meal.id ? null : { id: meal.id, draft: draftFromMacros(meal.macros, meal.fibreUnknown) })} aria-label={`Correct ${meal.name}`}>✎</button>
+                <button className="delete-button" type="button" onClick={() => removeMeal(meal.id)} aria-label={`Remove ${meal.name}`}>×</button>
+              </div>
+              {editing?.id === meal.id && (
+                <div className="meal-editor">
+                  <MacroFields draft={editing.draft} onChange={(draft) => setEditing({ id: meal.id, draft })} legend="What it really was" context={`for ${meal.name.toLowerCase()}`} fibrePlaceholder="if you know it" />
+                  <div className="meal-editor-actions">
+                    <button type="button" className="ghost-button" onClick={() => setEditing(null)}>Cancel</button>
+                    {meal.parsed && <button type="button" className="ghost-button" onClick={() => revertCorrection(meal.id)}>Put back what the parser had</button>}
+                    <button type="button" className="log-button" onClick={saveCorrection} disabled={!readMacros(editing.draft)}>Save</button>
+                  </div>
+                </div>
+              )}
             </article>
           ))}
         </div>

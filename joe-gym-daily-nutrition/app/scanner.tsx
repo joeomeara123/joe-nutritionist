@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ScanResult, ScannedProduct } from "@/lib/barcode";
 import { aliasCollision, amountForParser, buildPantryFood, NOT_A_NAME, type PantryFood } from "@/lib/pantry";
+import { MACRO_FIELDS, asNumber, EMPTY_DRAFT, type MacroDraft } from "@/lib/macros";
+import MacroFields from "./macro-fields";
 
 /**
  * Scanning a barcode.
@@ -39,31 +41,23 @@ async function makeDetector(): Promise<Detector> {
 
 type Stage = { step: "scan" } | { step: "looking"; barcode: string } | { step: "confirm"; barcode: string; result: ScanResult };
 
-/** Empty string rather than 0, so a blank box reads as "no figure" instead of "none of it". */
-type Draft = { name: string; calories: string; protein: string; carbs: string; fat: string; fibre: string; amount: string };
-
-const MACRO_FIELDS = [
-  { key: "calories", label: "kcal" },
-  { key: "protein", label: "protein" },
-  { key: "carbs", label: "carbs" },
-  { key: "fat", label: "fat" },
-  { key: "fibre", label: "fibre" },
-] as const;
+type Draft = MacroDraft & { name: string; amount: string };
 
 const draftFrom = (product?: ScannedProduct): Draft => ({
+  ...EMPTY_DRAFT,
+  ...(product
+    ? {
+        calories: String(product.per100g.calories),
+        protein: String(product.per100g.protein),
+        carbs: String(product.per100g.carbs),
+        fat: String(product.per100g.fat),
+        // The database publishes no fibre for plenty of products; blank says so.
+        fibre: product.per100g.fibre === null ? "" : String(product.per100g.fibre),
+      }
+    : {}),
   name: (product?.name ?? "").toLowerCase().trim(),
-  calories: product ? String(product.per100g.calories) : "",
-  protein: product ? String(product.per100g.protein) : "",
-  carbs: product ? String(product.per100g.carbs) : "",
-  fat: product ? String(product.per100g.fat) : "",
-  fibre: product?.per100g.fibre === null || product === undefined ? "" : String(product.per100g.fibre),
   amount: "",
 });
-
-const asNumber = (value: string): number | null => {
-  const parsed = Number(value.trim());
-  return value.trim() !== "" && Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-};
 
 export default function Scanner({
   pantry,
@@ -267,21 +261,13 @@ export default function Scanner({
               </p>
             )}
 
-            <fieldset className="scan-macros">
-              <legend>Per 100g{product ? " — correct anything that doesn't match the packet" : ""}</legend>
-              {MACRO_FIELDS.map((field) => (
-                <label key={field.key}>
-                  <span>{field.label}</span>
-                  <input
-                    value={draft[field.key]}
-                    onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value })}
-                    inputMode="decimal"
-                    placeholder={field.key === "fibre" && product?.per100g.fibre === null ? "not published" : ""}
-                    aria-label={`${field.label} per 100g`}
-                  />
-                </label>
-              ))}
-            </fieldset>
+            <MacroFields
+              draft={draft}
+              onChange={(next) => setDraft({ ...draft, ...next })}
+              legend={`Per 100g${product ? " — correct anything that doesn't match the packet" : ""}`}
+              context="per 100g"
+              fibrePlaceholder={product?.per100g.fibre === null ? "not published" : undefined}
+            />
             {fibre === null && (
               <p className="scan-note small">
                 No fibre figure, so it counts as 0 towards your 30g. Worth typing in if the packet gives one.

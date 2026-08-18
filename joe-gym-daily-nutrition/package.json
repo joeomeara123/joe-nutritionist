@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "test": "npm run test:unit && npm run build && npm run test:render",
-    "test:unit": "bun test tests/food-parser.test.ts tests/recommendations.test.ts tests/nutrition-tools.test.ts tests/food-data.test.ts tests/food-lookup.test.ts tests/barcode.test.ts tests/pantry.test.ts tests/wasm-asset.test.ts",
+    "test:unit": "bun test tests/food-parser.test.ts tests/recommendations.test.ts tests/nutrition-tools.test.ts tests/food-data.test.ts tests/food-lookup.test.ts tests/barcode.test.ts tests/pantry.test.ts tests/macros.test.ts tests/wasm-asset.test.ts",
     "test:render": "node --experimental-strip-types --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },

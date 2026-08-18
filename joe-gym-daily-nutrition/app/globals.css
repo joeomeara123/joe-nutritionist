@@ -260,7 +260,7 @@ footer span { font-family:var(--font-geist-mono),monospace; }
 .scan-reticle { position:absolute; inset:22% 12%; border:2px solid #ffffffcc; border-radius:10px; box-shadow:0 0 0 9999px #00000038; }
 .scan-manual { margin-top:14px; display:flex; gap:9px; }
 .scan-manual input { flex:1; min-height:44px; padding:0 15px; border:1px solid var(--line); border-radius:999px; background:white; font-family:inherit; font-size:13px; color:var(--ink); }
-.scan-manual input:focus,.scan-field input:focus,.scan-macros input:focus { outline:none; border-color:var(--ink); }
+.scan-manual input:focus,.scan-field input:focus,.macro-fields input:focus { outline:none; border-color:var(--ink); }
 .scan-manual button { min-width:88px; border:0; border-radius:999px; color:white; background:var(--ink); font-family:inherit; font-size:12px; font-weight:650; cursor:pointer; }
 .scan-manual button:disabled { opacity:.4; cursor:default; }
 .scan-note { margin:16px 0 0; color:var(--muted); font-size:12px; line-height:1.5; }
@@ -275,11 +275,11 @@ footer span { font-family:var(--font-geist-mono),monospace; }
 .scan-field span { flex:none; width:58px; color:var(--muted); font-size:11px; }
 .scan-field input { flex:1; min-height:44px; padding:0 15px; border:1px solid var(--line); border-radius:12px; background:white; font-family:inherit; font-size:13px; color:var(--ink); }
 .scan-clash { margin:-4px 0 0 70px; color:#8a7434; font-size:11px; line-height:1.45; }
-.scan-macros { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin:0; padding:13px; border:1px solid var(--line); border-radius:14px; background:white; }
-.scan-macros legend { padding:0 6px; color:var(--muted); font-size:10.5px; }
-.scan-macros label { display:flex; flex-direction:column; gap:5px; }
-.scan-macros span { color:var(--muted); font-size:10px; }
-.scan-macros input { width:100%; min-height:38px; padding:0 8px; border:1px solid var(--line); border-radius:9px; background:var(--surface); font-family:inherit; font-size:13px; text-align:center; color:var(--ink); }
+.macro-fields { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin:0; padding:13px; border:1px solid var(--line); border-radius:14px; background:white; }
+.macro-fields legend { padding:0 6px; color:var(--muted); font-size:10.5px; }
+.macro-fields label { display:flex; flex-direction:column; gap:5px; }
+.macro-fields span { color:var(--muted); font-size:10px; }
+.macro-fields input { width:100%; min-height:38px; padding:0 8px; border:1px solid var(--line); border-radius:9px; background:var(--surface); font-family:inherit; font-size:13px; text-align:center; color:var(--ink); }
 .scan-actions { display:flex; gap:10px; }
 .scan-actions button { flex:1; }
 
@@ -295,8 +295,30 @@ footer span { font-family:var(--font-geist-mono),monospace; }
 .pantry-list button:hover { color:var(--ink); }
 @media (max-width:720px) {
   .scan-sheet { padding:18px; border-radius:18px; }
-  .scan-macros { grid-template-columns:repeat(3,1fr); }
+  .macro-fields { grid-template-columns:repeat(3,1fr); }
   .scan-field { align-items:stretch; flex-direction:column; gap:5px; }
   .scan-field span { width:auto; }
   .scan-clash { margin-left:0; }
+}
+
+/* ---- Typing the macros yourself ---- */
+.entry-modes { margin-top:14px; display:inline-flex; gap:4px; padding:3px; border:1px solid var(--line); border-radius:999px; background:white; }
+.entry-modes button { padding:7px 14px; border:0; border-radius:999px; color:var(--muted); background:transparent; font-family:inherit; font-size:11.5px; font-weight:600; cursor:pointer; }
+.entry-modes button.active { color:white; background:var(--ink); }
+.typed-entry { display:flex; flex-direction:column; gap:12px; }
+.typed-entry .scan-field span { width:96px; }
+.macro-estimate { align-self:flex-start; margin-top:-4px; padding:8px 13px; border:1px dashed #d8c48a; border-radius:999px; color:#8a7434; background:#fdf8ea; font-family:inherit; font-size:11px; cursor:pointer; }
+.macro-estimate:hover { border-style:solid; }
+
+/* ---- Correcting a logged meal ---- */
+.meal-card.hand-entered { border-left:3px solid #d8c48a; }
+.meal-buttons { display:flex; gap:4px; }
+.meal-note { display:block; margin-top:4px; color:#8a7434; font-size:10px; font-style:normal; line-height:1.4; }
+.meal-editor { grid-column:1/-1; margin-top:14px; padding-top:14px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:11px; }
+.meal-editor-actions { display:flex; flex-wrap:wrap; gap:9px; }
+.meal-editor-actions button { flex:1; min-width:120px; }
+@media (max-width:720px) {
+  .entry-modes { width:100%; justify-content:stretch; }
+  .entry-modes button { flex:1; }
+  .typed-entry .scan-field span { width:auto; }
 }

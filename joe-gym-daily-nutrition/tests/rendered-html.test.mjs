@@ -67,8 +67,16 @@ test("keeps Joe's targets and current Veetee pot values exact", async () => {
   assert.equal(fullPot.protein, 3);
   assert.equal(fullPot.carbs, 41.2);
   assert.equal(fullPot.fat, 2.3);
-  assert.match(page, /scaled\(FOODS\[0\],\s*192\)/);
-  assert.match(page, /scaled\(FOODS\[4\],\s*130\)/);
+  // The example meal names its foods by id. It used to index FOODS positionally, and when a
+  // food was inserted above them the card said "Nando's sauce" while logging 20g of oven
+  // chips — so the guard is that the positional form never comes back.
+  assert.match(page, /\["chicken-thigh",\s*192\]/);
+  assert.match(page, /\["sticky-rice",\s*130\]/);
+  assert.match(page, /\["nandos",\s*20\]/);
+  // Comments stripped first: the guard is about code, and the comment explaining the bug
+  // naturally quotes the very shape it is guarding against.
+  const code = page.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/.*$/gm, " ");
+  assert.doesNotMatch(code, /FOODS\[\d+\]/);
   assert.match(page, /Protein[\s\S]*?grams:\s*160,\s*calories:\s*640,\s*percent:\s*35\.6/);
   assert.match(page, /Carbs[\s\S]*?grams:\s*155,\s*calories:\s*620,\s*percent:\s*34\.4/);
   assert.match(page, /Fat[\s\S]*?grams:\s*60,\s*calories:\s*540,\s*percent:\s*30/);

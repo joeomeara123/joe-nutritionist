@@ -79,6 +79,23 @@ for a bare mention — "bagel" plainly means one bagel.
 Suggestions in `lib/recommendations.ts` derive their macros from their own `logText`, so the
 card and the resulting diary entry cannot disagree.
 
+### Typing the macros yourself
+
+Everything else in the app derives macros from a food. **Type the macros** in the add-food card
+is the way in for anything the parser cannot read — a restaurant meal, a plate at someone
+else's house — and the ✎ on any diary card corrects a meal that logged wrong.
+
+A number Joe read off a menu beats anything the app derives, so a hand-entered meal is recorded
+as the best source there is, not as an estimate. What stays visible is only that it came from
+him: `Meal.macros` remains the single authority day totals read, `entered: "hand"` labels the
+fact that it no longer matches the foods listed on the card, and `parsed` keeps whatever the
+parser had worked out so the correction can be inspected and put back.
+
+A blank required box fails the entry rather than defaulting to zero — a plate of food is not 0g
+of protein. Fibre is the exception, counting as 0 with the meal marked, because it has to count
+as something. With the other figures filled the form offers `4P + 4C + 9F + 2 fibre` as
+something to tap; it is never applied on its own.
+
 ### Scanning a barcode
 
 **Scan** in the add-food card opens the camera. A decoded barcode goes to `/api/barcode/[code]`,
@@ -113,15 +130,18 @@ Key modules:
 - `app/page.tsx` — dashboard UI, including the calorie-composition wheel.
 - `app/chat.tsx` — the "Ask" panel (streaming conversation).
 - `app/scanner.tsx` — the barcode scanner sheet.
+- `app/macro-fields.tsx` — the five macro boxes, shared by the scanner, the typed-entry form
+  and the diary editor.
 - `app/api/chat/route.ts` — Claude endpoint. Needs `ANTHROPIC_API_KEY`.
 - `app/api/barcode/[code]/route.ts` — barcode lookup against Open Food Facts.
 - `lib/food-parser.ts` — turns spoken/typed phrases into foods and amounts.
 - `lib/barcode.ts` — reads a product off a barcode response, and what to refuse.
 - `lib/pantry.ts` — scanned foods, and the alias collision check.
+- `lib/macros.ts` — reading macros Joe typed, and what a blank box means.
 - `lib/recommendations.ts` — adaptive suggestions for the remaining macros.
 - `lib/nutrition-tools.ts` — the deterministic layer the chat calls.
-- `tests/` — `food-parser`, `recommendations`, `nutrition-tools`, `barcode`, `pantry`, and a
-  rendered-HTML check.
+- `tests/` — `food-parser`, `recommendations`, `nutrition-tools`, `barcode`, `pantry`,
+  `macros`, and a rendered-HTML check.
 
 ### The Ask panel
 
