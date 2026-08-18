@@ -51,10 +51,10 @@ describe("pricing a food that is not in the catalogue", () => {
 
 describe("the food database lookup", () => {
   test("finds a real product and returns usable per-100g macros", async () => {
-    const found = await searchFoodDatabase("Sainsbury's fat free Greek style natural yogurt");
-    if (!found.length) return; // network-dependent; the offline path is covered above
+    const { foods, unreachable } = await searchFoodDatabase("Greek style natural yogurt");
+    if (unreachable || !foods.length) return; // network-dependent; the offline path is covered above
 
-    for (const food of found) {
+    for (const food of foods) {
       expect(food.name.length).toBeGreaterThan(0);
       expect(food.provisional).toBe(true);
       expect(food.per100g.calories).toBeGreaterThan(0);
@@ -64,6 +64,13 @@ describe("the food database lookup", () => {
 
   test("returns nothing rather than throwing on a nonsense query", async () => {
     const found = await searchFoodDatabase("zzzzqqqqxxxx nonsense food");
-    expect(Array.isArray(found)).toBe(true);
+    expect(Array.isArray(found.foods)).toBe(true);
+  }, 20000);
+
+  /** An outage used to be indistinguishable from an empty shelf. It has its own flag now. */
+  test("separates the database being down from the food not existing", async () => {
+    const found = await searchFoodDatabase("chickpeas");
+    expect(typeof found.unreachable).toBe("boolean");
+    if (found.unreachable) expect(found.foods).toHaveLength(0);
   }, 20000);
 });

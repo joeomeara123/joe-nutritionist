@@ -3,7 +3,9 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { FOODS, parseFood, scaled, type Macros, type ParsedFood } from "@/lib/food-parser";
 import { recommendDay, type Suggestion } from "@/lib/recommendations";
+import { pantryFoods, readPantry, writePantry, type PantryFood } from "@/lib/pantry";
 import Chat from "./chat";
+import Scanner from "./scanner";
 
 type Meal = { id: string; name: string; text: string; time: string; items: ParsedFood[]; macros: Macros };
 type Diary = Record<string, Meal[]>;
@@ -72,6 +74,10 @@ export default function Home() {
   const [listening, setListening] = useState(false);
   const [mealName, setMealName] = useState("Lunch");
   const [recommendationSelection, setRecommendationSelection] = useState({ key: "", index: 0 });
+  // Foods Joe has scanned. They are appended to the stocked list wherever it is read, so a
+  // scanned jar behaves like anything else in the app rather than living in its own corner.
+  const [pantry, setPantry] = useState<PantryFood[]>([]);
+  const [scanning, setScanning] = useState(false);
   const recognitionRef = useRef<{ start: () => void; stop: () => void } | null>(null);
 
   useEffect(() => {
@@ -81,12 +87,19 @@ export default function Home() {
     } else {
       setDiary({ [today]: [seedMeal()] });
     }
+    setPantry(readPantry());
     setHydrated(true);
   }, [today]);
 
   useEffect(() => {
     if (hydrated) window.localStorage.setItem("joe-gym-diary-v1", JSON.stringify(diary));
   }, [diary, hydrated]);
+
+  useEffect(() => {
+    if (hydrated) writePantry(pantry);
+  }, [pantry, hydrated]);
+
+  const scannedFoods = useMemo(() => pantryFoods(pantry), [pantry]);
 
   const meals = diary[selectedDate] || [];
   const properMealCount = meals.filter((meal) => meal.name !== "Snack").length;
@@ -112,7 +125,7 @@ export default function Home() {
   function previewEntry(event?: FormEvent) {
     event?.preventDefault();
     if (!entry.trim()) return;
-    const parsed = parseFood(entry);
+    const parsed = parseFood(entry, scannedFoods);
     if (!parsed.items.length) {
       setParseError("I couldn’t recognise that yet. Try: “200g cooked chicken, one sticky rice pot and 150g broccoli”.");
       setPreviewItems([]);
@@ -159,7 +172,7 @@ export default function Home() {
   /** The chat solves the portion; the diary still parses and prices it, so a logged meal is
    *  identical whether it came from the form or the conversation. */
   function logMealFromChat(name: string, text: string) {
-    const parsed = parseFood(text);
+    const parsed = parseFood(text, scannedFoods);
     if (!parsed.items.length) { setParseError(`I couldn’t log “${text}” — none of those foods are stored yet.`); return; }
     const now = new Date();
     const meal: Meal = {
@@ -173,12 +186,32 @@ export default function Home() {
     setDiary((current) => ({ ...current, [selectedDate]: [...(current[selectedDate] || []), meal] }));
   }
 
+  /** A scanned product becomes a food, then optionally goes straight into the preview — the
+   *  same path as typing it, so the chips, the assumed-amount flags and the log button are
+   *  all the code that already works. */
+  function saveScannedFood(food: PantryFood, amount: string) {
+    const nextPantry = [...pantry.filter((entry) => entry.barcode !== food.barcode), food];
+    setPantry(nextPantry);
+    setScanning(false);
+
+    if (!amount) {
+      setParseError(`Saved ${food.name}. Say the amount whenever you eat it — “150g ${food.name}”.`);
+      return;
+    }
+    const text = `${amount} ${food.name}`;
+    const parsed = parseFood(text, pantryFoods(nextPantry));
+    setEntry(text);
+    setPreviewItems(parsed.items);
+    setParseError(parsed.items.length ? "" : `Saved ${food.name}, but I couldn't read “${amount}” as an amount. Try “150g”.`);
+    requestAnimationFrame(() => document.getElementById("meal-entry")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }
+
   function removeMeal(id: string) {
     setDiary((current) => ({ ...current, [selectedDate]: (current[selectedDate] || []).filter((meal) => meal.id !== id) }));
   }
 
   function loadRecommendation(suggestion: Suggestion) {
-    const parsed = parseFood(suggestion.logText);
+    const parsed = parseFood(suggestion.logText, scannedFoods);
     setEntry(suggestion.logText);
     setPreviewItems(parsed.items);
     setParseError("");
@@ -289,7 +322,7 @@ export default function Home() {
         </section>
       )}
 
-      <Chat day={{ consumed, mealCount: properMealCount, hour: new Date().getHours() }} onLogMeal={logMealFromChat} />
+      <Chat day={{ consumed, mealCount: properMealCount, hour: new Date().getHours() }} pantry={pantry} onLogMeal={logMealFromChat} />
 
       <section className="macro-section">
         <div className="section-heading"><div><p className="eyebrow">What remains</p><h2>Today&apos;s targets</h2></div><p className="muted">Live after every meal</p></div>
@@ -306,6 +339,7 @@ export default function Home() {
         <form className="entry-row" onSubmit={previewEntry}>
           <input value={entry} onChange={(event) => setEntry(event.target.value)} aria-label="Describe your food" placeholder="e.g. 200g cooked mince, one rice pot and 100g peppers" />
           <button className={`mic-button ${listening ? "listening" : ""}`} type="button" onClick={toggleVoice} aria-label={listening ? "Stop listening" : "Start voice entry"}><span className="mic-icon">{listening ? "■" : "●"}</span><span>{listening ? "Listening…" : "Speak"}</span></button>
+          <button className="mic-button scan-button" type="button" onClick={() => setScanning(true)} aria-label="Scan a barcode"><span className="mic-icon">▥</span><span>Scan</span></button>
           <button className="check-button" type="submit">Check meal</button>
         </form>
         {parseError && <p className="parse-error" role="alert">{parseError}</p>}
@@ -331,6 +365,25 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {scanning && <Scanner pantry={pantry} onSave={saveScannedFood} onClose={() => setScanning(false)} />}
+
+      {pantry.length > 0 && (
+        <section className="pantry-section">
+          <div className="section-heading"><div><p className="eyebrow">Scanned</p><h2>{pantry.length} food{pantry.length === 1 ? "" : "s"} you added</h2></div><p className="muted">Type the name to log them</p></div>
+          <div className="pantry-list">
+            {pantry.map((food) => (
+              <span key={food.barcode} className={food.provisional ? "provisional" : ""}>
+                <strong>{food.name}</strong>
+                <small>{round(food.per100g.calories)} kcal · {round(food.per100g.protein, 1)}P per 100g</small>
+                {food.provisional && <em>from the database — not checked</em>}
+                {food.fibreUnknown && <em>no fibre figure</em>}
+                <button type="button" onClick={() => setPantry((current) => current.filter((entry) => entry.barcode !== food.barcode))} aria-label={`Forget ${food.name}`}>×</button>
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
 
       <footer><p>Nutrition estimates use the product values saved in this tracker. Check packaging when a recipe or product changes.</p><span>Targets: 1,800 kcal · 160P · 155C · 60F · 30 fibre</span></footer>
     </main>

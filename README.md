@@ -79,15 +79,49 @@ for a bare mention — "bagel" plainly means one bagel.
 Suggestions in `lib/recommendations.ts` derive their macros from their own `logText`, so the
 card and the resulting diary entry cannot disagree.
 
+### Scanning a barcode
+
+**Scan** in the add-food card opens the camera. A decoded barcode goes to `/api/barcode/[code]`,
+which is an exact key into Open Food Facts — no ranking, no lookalikes. Name search is the last
+resort now rather than the first, because it is what produced every wrong product this app has
+had.
+
+The barcode gets the right product; it does not make the numbers true. So the panel that comes
+back is editable: correcting a figure against the packet in hand upgrades the food's provenance
+from a database lookup to a reading, which is the best source the app has. Missing fibre shows
+as "not published" and never as a measured zero — it is a hard 30g minimum, and a silent zero
+eats it. A product with no energy figure is refused outright rather than becoming a
+zero-calorie food.
+
+Saving writes a **pantry** entry to `localStorage` under `joe-gym-pantry-v1`, appended to
+`FOODS` wherever it is read. So a scanned jar behaves like anything else: "40g of it" works in
+the add-food box, in a sentence mixing it with stocked foods, and in the chat. `FOODS` itself
+is never mutated — its order is load-bearing and a test asserts every entry is sourced. New
+names are collision-checked in both directions, because the parser matches whole words and a
+new "oil" would be swallowed by "olive oil".
+
+A barcode that is not in the database opens the same panel with empty fields, saved against
+that code — so a miss costs one reading, not one per meal.
+
+`BarcodeDetector` is Chromium-only, so on iOS the decoding is done by a WebAssembly build of
+ZXing, lazy-loaded and served from `public/zxing_reader.wasm` rather than a CDN.
+`tests/wasm-asset.test.ts` asserts that copy matches the installed package. Every camera
+failure falls through to typing the digits.
+
 Key modules:
 
 - `app/page.tsx` — dashboard UI, including the calorie-composition wheel.
 - `app/chat.tsx` — the "Ask" panel (streaming conversation).
+- `app/scanner.tsx` — the barcode scanner sheet.
 - `app/api/chat/route.ts` — Claude endpoint. Needs `ANTHROPIC_API_KEY`.
+- `app/api/barcode/[code]/route.ts` — barcode lookup against Open Food Facts.
 - `lib/food-parser.ts` — turns spoken/typed phrases into foods and amounts.
+- `lib/barcode.ts` — reads a product off a barcode response, and what to refuse.
+- `lib/pantry.ts` — scanned foods, and the alias collision check.
 - `lib/recommendations.ts` — adaptive suggestions for the remaining macros.
 - `lib/nutrition-tools.ts` — the deterministic layer the chat calls.
-- `tests/` — `food-parser`, `recommendations`, `nutrition-tools`, and a rendered-HTML check.
+- `tests/` — `food-parser`, `recommendations`, `nutrition-tools`, `barcode`, `pantry`, and a
+  rendered-HTML check.
 
 ### The Ask panel
 

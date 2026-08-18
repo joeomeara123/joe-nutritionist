@@ -1,7 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
 
-import { FOODS, type Macros } from "@/lib/food-parser";
+import { FOODS, type Food, type Macros } from "@/lib/food-parser";
+import { pantryFoods, type PantryFood } from "@/lib/pantry";
 import { DAILY_TARGETS } from "@/lib/recommendations";
 import { searchFoodDatabase } from "@/lib/food-lookup";
 import { fitPortion, lookupFood, priceMeal, remainingFor, suggestMeals, type DayState, type MealItem } from "@/lib/nutrition-tools";
@@ -51,8 +52,8 @@ const ITEM_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-function foodCatalogue() {
-  return FOODS.map((food) => {
+function foodCatalogue(pantry: Food[]) {
+  return [...FOODS, ...pantry].map((food) => {
     const basis = food.basis === "portion" ? `per ${food.portionGrams}g ${food.portionLabel}` : "per 100g";
     // A 100g-basis food can still have a serving size; the model needs it to use `portions`.
     const serving = food.basis === "100g" && food.portionGrams ? `, 1 ${food.portionLabel} = ${food.portionGrams}g` : "";
@@ -60,11 +61,16 @@ function foodCatalogue() {
     // Flag the handful of foods whose numbers are estimates rather than label figures, so the
     // chat can say so instead of quoting them with the same confidence as the rest.
     const estimate = food.source ? "" : " [ESTIMATE, not from a label]";
-    return `- ${food.name} [${food.aliases[0]}] ${basis}${serving}${raw}: ${food.calories}kcal ${food.protein}P ${food.carbs}C ${food.fat}F ${food.fibre}fib${estimate}`;
+    // A scanned food is his, but its numbers may be the database's rather than the packet's,
+    // and a missing fibre figure is carried as 0. Both have to be sayable.
+    const scanned = food.id.startsWith("pantry:")
+      ? ` [SCANNED${food.provisional ? ", from the barcode database and not checked against the packet" : ", read off the packet"}${food.fibreUnknown ? "; fibre not published, counted as 0" : ""}]`
+      : "";
+    return `- ${food.name} [${food.aliases[0]}] ${basis}${serving}${raw}: ${food.calories}kcal ${food.protein}P ${food.carbs}C ${food.fat}F ${food.fibre}fib${estimate}${scanned}`;
   }).join("\n");
 }
 
-function systemPrompt(day: DayState) {
+function systemPrompt(day: DayState, pantry: Food[]) {
   const left = remainingFor(day.consumed);
   return `You are Joe's nutrition coach, built into his own food tracker. He talks to you while he is cooking, so answer like a person standing next to him at the hob.
 
@@ -102,6 +108,8 @@ The list below is his usual shop, not the limit of what he eats. Never substitut
 1. Call \`search_food_database\`. Pick the candidate that matches what he actually has, then pass its \`per100g\` straight into \`price_meal\` or \`fit_portion\` alongside everything else on the plate. Mention in passing that the figure came from a lookup rather than his own shelf.
 2. If nothing usable comes back, ask him to read the per-100g panel off the packet — four numbers — and pass those as \`per100g\`. That is the most accurate answer available, so it is worth one short question.
 
+If he is standing there holding the packet, mention that tapping Scan in the app and pointing the camera at the barcode is quicker than reading numbers out, and that it saves the product so he never has to do it twice. Say it once, in passing — do not push it, and never make it a condition of answering.
+
 Price the whole meal in one call, mixing stocked and looked-up foods freely. Do not make him choose between an answer and an accurate one.
 
 Tool results can carry an \`assumed\` field on an item. \`"quantity"\` means he named a food without an amount; \`"portionSize"\` means he counted pieces of something whose pieces vary — a chicken thigh is stored at 64g, but the pack itself says sizes vary, so three thighs is a count and not a weight. When an assumed item is a meaningful part of the meal, say what you assumed in a half-sentence and offer to reprice if he weighs it. Do not hide it, and do not make a fuss about it either.
@@ -111,7 +119,7 @@ Most figures below come straight off the Sainsbury's label for the product he bu
 If he tells you he has eaten something, offer to log it and use \`log_meal\` when he says yes.
 
 ## What he actually keeps in
-${foodCatalogue()}`;
+${foodCatalogue(pantry)}`;
 }
 
 export async function POST(request: Request) {
@@ -122,8 +130,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Too many messages in the last minute. Give it a moment." }, { status: 429 });
   }
 
-  const body = (await request.json()) as { messages?: Array<{ role: "user" | "assistant"; content: string }>; day?: DayState };
+  const body = (await request.json()) as { messages?: Array<{ role: "user" | "assistant"; content: string }>; day?: DayState; pantry?: PantryFood[] };
   const messages = body.messages ?? [];
+  // Foods Joe has scanned. They live in his browser, so they arrive with each request the
+  // same way the diary does — the server holds no state of its own.
+  const pantry = pantryFoods(body.pantry ?? []);
   const day: DayState = body.day ?? { consumed: { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0 }, mealCount: 0, hour: new Date().getHours() };
 
   if (!messages.length) return Response.json({ error: "No messages." }, { status: 400 });
@@ -139,7 +150,7 @@ export async function POST(request: Request) {
       description: "Look up one stored food and its exact macros. Use before quoting any per-100g or per-portion figure.",
       inputSchema: { type: "object", properties: { food: { type: "string" } }, required: ["food"], additionalProperties: false },
       run: ({ food }: { food: string }) => {
-        const match = lookupFood(food);
+        const match = lookupFood(food, pantry);
         return JSON.stringify(match ?? { error: `Not stocked: ${food}` });
       },
     }),
@@ -147,7 +158,7 @@ export async function POST(request: Request) {
       name: "price_meal",
       description: "Get exact totals for a meal Joe describes, plus where his day lands after eating it. Use whenever he states the quantities himself.",
       inputSchema: { type: "object", properties: { items: { type: "array", items: ITEM_SCHEMA } }, required: ["items"], additionalProperties: false },
-      run: ({ items }: { items: MealItem[] }) => JSON.stringify(priceMeal(items, day)),
+      run: ({ items }: { items: MealItem[] }) => JSON.stringify(priceMeal(items, day, pantry)),
     }),
     betaTool({
       name: "fit_portion",
@@ -171,7 +182,7 @@ export async function POST(request: Request) {
       },
       run: ({ fixed, variable, variablePer100g }: { fixed: MealItem[]; variable: string; variablePer100g?: Macros }) => {
         try {
-          return JSON.stringify(fitPortion({ day, fixed, variable, variablePer100g }));
+          return JSON.stringify(fitPortion({ day, fixed, variable, variablePer100g, pantry }));
         } catch (error) {
           return JSON.stringify({ error: error instanceof Error ? error.message : "Could not solve that portion." });
         }
@@ -188,8 +199,11 @@ export async function POST(request: Request) {
         additionalProperties: false,
       },
       run: async ({ food }: { food: string }) => {
-        const found = await searchFoodDatabase(food);
-        return JSON.stringify(found.length ? found : { error: `Nothing usable found for "${food}". Ask Joe to read the per-100g panel off the packet.` });
+        const { foods, unreachable } = await searchFoodDatabase(food);
+        // "The database is down" and "that food does not exist" are different answers, and
+        // telling Joe the second when the first is true is how he gets told a food is not real.
+        if (unreachable) return JSON.stringify({ error: "The food database is not responding right now. Ask Joe to read the per-100g panel off the packet, or to scan its barcode." });
+        return JSON.stringify(foods.length ? foods : { error: `Nothing usable found for "${food}". Ask Joe to read the per-100g panel off the packet, or to scan its barcode.` });
       },
     }),
     betaTool({
@@ -211,7 +225,7 @@ export async function POST(request: Request) {
         additionalProperties: false,
       },
       run: ({ name, text }: { name: string; text: string }) => {
-        const priced = priceMeal([], day);
+        const priced = priceMeal([], day, pantry);
         pendingLogs.push({ name, text });
         return JSON.stringify({ logged: true, name, text, note: "Applied to the diary in the app.", remaining: priced.remaining });
       },
@@ -230,7 +244,7 @@ export async function POST(request: Request) {
           // Thinking is on (adaptive) by default on Claude Opus 5 — passing it explicitly
           // trips this SDK version's older typings, and omitting it is equivalent.
           output_config: { effort: "medium" },
-          system: systemPrompt(day),
+          system: systemPrompt(day, pantry),
           tools,
           messages: messages.map((message) => ({ role: message.role, content: message.content })),
           stream: true,

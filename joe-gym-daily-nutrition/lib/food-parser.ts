@@ -18,7 +18,7 @@ export type Macros = { calories: number; protein: number; carbs: number; fat: nu
  */
 export type FoodSource = { product: string; url: string; basis: string };
 export type CookState = "cooked" | "uncooked";
-export type Food = Macros & { id: string; name: string; aliases: string[]; basis: "100g" | "portion"; portionGrams?: number; portionLabel?: string; portionVaries?: boolean; weighedAs?: CookState; cookedRatio?: number; source?: FoodSource };
+export type Food = Macros & { id: string; name: string; aliases: string[]; basis: "100g" | "portion"; portionGrams?: number; portionLabel?: string; portionVaries?: boolean; weighedAs?: CookState; cookedRatio?: number; source?: FoodSource; provisional?: boolean; fibreUnknown?: boolean };
 
 /**
  * Convert a weight Joe took in one state into the state the food's macros are stored in.
@@ -185,13 +185,13 @@ const FILLER =
  * Matches an alias only on word boundaries. `includes()` would match "oil" inside "boiled"
  * and "chicken" inside a longer unrelated word.
  */
-function findAlias(haystack: string, alias: string): number {
+export function findAlias(haystack: string, alias: string): number {
   const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = haystack.match(new RegExp(`(?:^|[^a-z0-9])(${escaped})(?![a-z0-9])`));
   return match?.index === undefined ? -1 : match.index + match[0].length - alias.length;
 }
 
-export function parseFood(text: string): { items: ParsedFood[]; unknown: string[] } {
+export function parseFood(text: string, extra: Food[] = []): { items: ParsedFood[]; unknown: string[] } {
   // Brackets become spaces rather than being stripped, so every index still lines up with the
   // original text. Joe puts the real weight in brackets on either side of the food — "3
   // uncooked (392g) chicken thighs", "some pesto (2 teaspoons)" — and once they are spaces
@@ -206,7 +206,9 @@ export function parseFood(text: string): { items: ParsedFood[]; unknown: string[
     residue = residue.slice(0, start) + " ".repeat(end - start) + residue.slice(end);
   };
 
-  for (const food of FOODS) {
+  // Scanned foods sit after the stocked ones so `FOODS`' deliberate ordering still holds —
+  // the cooking fats stay last, where their short aliases cannot shadow a longer name.
+  for (const food of [...FOODS, ...extra]) {
     let alias: string | undefined;
     let aliasIndex = -1;
     for (const candidate of food.aliases) {

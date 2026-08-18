@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import type { DayState } from "@/lib/nutrition-tools";
+import type { PantryFood } from "@/lib/pantry";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -11,6 +12,7 @@ const TOOL_LABELS: Record<string, string> = {
   price_meal: "working out the totals",
   fit_portion: "solving the portion",
   suggest_meals: "looking at what you can build",
+  search_food_database: "looking that food up",
   log_meal: "logging it",
 };
 
@@ -20,7 +22,7 @@ const PROMPTS = [
   "How much oil can I use with 400g of raw chicken?",
 ];
 
-export default function Chat({ day, onLogMeal }: { day: DayState; onLogMeal: (name: string, text: string) => void }) {
+export default function Chat({ day, pantry, onLogMeal }: { day: DayState; pantry: PantryFood[]; onLogMeal: (name: string, text: string) => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -47,7 +49,7 @@ export default function Chat({ day, onLogMeal }: { day: DayState; onLogMeal: (na
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messages: history, day }),
+        body: JSON.stringify({ messages: history, day, pantry }),
       });
 
       if (!response.ok || !response.body) {

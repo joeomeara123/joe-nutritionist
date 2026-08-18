@@ -62,18 +62,24 @@ export function remainingFor(consumed: Macros): Macros {
   };
 }
 
-/** Resolve a spoken food name to the stored entry, or null if Joe does not stock it. */
-export function lookupFood(query: string): Food | null {
+/**
+ * Resolve a spoken food name to the stored entry, or null if Joe does not stock it.
+ *
+ * `pantry` carries the foods he has scanned. They are appended rather than merged into
+ * `FOODS`, whose order is load-bearing.
+ */
+export function lookupFood(query: string, pantry: Food[] = []): Food | null {
   const wanted = query.trim().toLowerCase();
   if (!wanted) return null;
 
-  const exact = FOODS.find((food) => food.aliases.includes(wanted) || food.name.toLowerCase() === wanted);
+  const catalogue = [...FOODS, ...pantry];
+  const exact = catalogue.find((food) => food.aliases.includes(wanted) || food.name.toLowerCase() === wanted);
   if (exact) return exact;
 
   // Fall back to the same matcher the diary uses, so the chat and the log agree on names.
-  const parsed = parseFood(wanted);
+  const parsed = parseFood(wanted, pantry);
   if (parsed.items.length === 1) {
-    return FOODS.find((food) => food.id === parsed.items[0].id) ?? null;
+    return catalogue.find((food) => food.id === parsed.items[0].id) ?? null;
   }
 
   // Shorthand: Joe says "rice", the stored aliases are all "sticky rice" / "jasmine rice".
@@ -84,7 +90,7 @@ export function lookupFood(query: string): Food | null {
   const wholeWord = new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`);
   const isHead = new RegExp(`(?:^|\\s)${escaped}$`);
 
-  const partial = FOODS.flatMap((food) => {
+  const partial = catalogue.flatMap((food) => {
     const alias = food.aliases.find((candidate) => wholeWord.test(candidate));
     return alias ? [{ food, alias, head: isHead.test(alias) ? 0 : 1 }] : [];
   }).sort((a, b) => a.head - b.head || a.alias.length - b.alias.length);
@@ -97,9 +103,9 @@ function adHocFood(name: string, per100g: Macros): Food {
   return { id: `adhoc:${name.toLowerCase()}`, name, aliases: [], basis: "100g", ...per100g };
 }
 
-function resolveItem(item: MealItem): { parsed: ParsedFood; food: Food } | { unknown: string } {
+function resolveItem(item: MealItem, pantry: Food[]): { parsed: ParsedFood; food: Food } | { unknown: string } {
   // Explicit macros win over the catalogue: if Joe has read a label out, that beats a lookalike.
-  const food = item.per100g ? adHocFood(item.food, item.per100g) : lookupFood(item.food);
+  const food = item.per100g ? adHocFood(item.food, item.per100g) : lookupFood(item.food, pantry);
   if (!food) return { unknown: item.food };
 
   const grams = item.grams ?? (item.portions !== undefined && food.portionGrams ? item.portions * food.portionGrams : undefined) ?? food.portionGrams ?? 100;
@@ -134,12 +140,12 @@ export type PricedMeal = {
 };
 
 /** Exact totals for a proposed meal, plus where the day lands if Joe eats it. */
-export function priceMeal(items: MealItem[], day: DayState): PricedMeal {
+export function priceMeal(items: MealItem[], day: DayState, pantry: Food[] = []): PricedMeal {
   const parsed: ParsedFood[] = [];
   const unknown: string[] = [];
 
   for (const item of items) {
-    const resolved = resolveItem(item);
+    const resolved = resolveItem(item, pantry);
     if ("unknown" in resolved) unknown.push(resolved.unknown);
     else parsed.push(resolved.parsed);
   }
@@ -181,11 +187,12 @@ const MAX_GRAMS = 800;
  *     app. Because it scores against what is *left*, a mostly-empty day naturally yields a
  *     big portion and a nearly-finished one yields a small one.
  */
-export function fitPortion(args: { day: DayState; fixed: MealItem[]; variable: string; variablePer100g?: Macros }): FittedPortion {
-  const food = args.variablePer100g ? adHocFood(args.variable, args.variablePer100g) : lookupFood(args.variable);
+export function fitPortion(args: { day: DayState; fixed: MealItem[]; variable: string; variablePer100g?: Macros; pantry?: Food[] }): FittedPortion {
+  const pantry = args.pantry ?? [];
+  const food = args.variablePer100g ? adHocFood(args.variable, args.variablePer100g) : lookupFood(args.variable, pantry);
   if (!food) throw new Error(`No stored food matches "${args.variable}". Look it up or read its label, then pass its per-100g macros.`);
 
-  const fixedPriced = priceMeal(args.fixed, args.day);
+  const fixedPriced = priceMeal(args.fixed, args.day, pantry);
   const base = add(args.day.consumed, total(fixedPriced.items));
 
   const ceilings: Array<[keyof Macros, number]> = [

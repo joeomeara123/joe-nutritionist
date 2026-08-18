@@ -246,3 +246,57 @@ footer span { font-family:var(--font-geist-mono),monospace; }
 .date-button.import-button::after { content:"↑"; display:grid; place-items:center; width:28px; height:28px; border:1px solid var(--line); border-radius:999px; background:var(--surface); font-size:12px; }
 .date-button.import-button:hover::after { border-color:var(--ink); }
 .date-button:not(.import-button) { margin-left:0; }
+
+/* ---- Barcode scanner ---- */
+.scan-button .mic-icon { font-size:12px; }
+.scan-overlay { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:16px; background:#27302499; backdrop-filter:blur(3px); }
+.scan-sheet { width:100%; max-width:460px; max-height:92vh; overflow-y:auto; padding:22px; border:1px solid var(--ink); border-radius:22px; background:var(--surface); box-shadow:0 30px 70px #27302433; }
+.scan-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.scan-head h2 { margin:4px 0 0; font-size:22px; font-weight:690; letter-spacing:-.04em; }
+.scan-close { width:32px; height:32px; flex:none; border:1px solid var(--line); border-radius:999px; background:white; color:var(--ink); font-size:17px; line-height:1; cursor:pointer; }
+.scan-close:hover { border-color:var(--ink); }
+.scan-viewfinder { position:relative; margin-top:16px; aspect-ratio:4/3; border-radius:16px; overflow:hidden; background:#000; }
+.scan-viewfinder video { width:100%; height:100%; object-fit:cover; }
+.scan-reticle { position:absolute; inset:22% 12%; border:2px solid #ffffffcc; border-radius:10px; box-shadow:0 0 0 9999px #00000038; }
+.scan-manual { margin-top:14px; display:flex; gap:9px; }
+.scan-manual input { flex:1; min-height:44px; padding:0 15px; border:1px solid var(--line); border-radius:999px; background:white; font-family:inherit; font-size:13px; color:var(--ink); }
+.scan-manual input:focus,.scan-field input:focus,.scan-macros input:focus { outline:none; border-color:var(--ink); }
+.scan-manual button { min-width:88px; border:0; border-radius:999px; color:white; background:var(--ink); font-family:inherit; font-size:12px; font-weight:650; cursor:pointer; }
+.scan-manual button:disabled { opacity:.4; cursor:default; }
+.scan-note { margin:16px 0 0; color:var(--muted); font-size:12px; line-height:1.5; }
+.scan-note.small { margin-top:9px; font-size:11px; }
+.scan-confirm { margin-top:16px; display:flex; flex-direction:column; gap:13px; }
+.scan-product { display:flex; flex-direction:column; gap:3px; padding:13px 15px; border:1px solid var(--line); border-radius:14px; background:white; }
+.scan-product.missing { border-color:#d8c48a; background:#fdf8ea; }
+.scan-product strong { font-size:14px; letter-spacing:-.02em; }
+.scan-product span { color:var(--muted); font-size:11.5px; line-height:1.45; }
+.scan-product em { color:#8a7434; font-size:10.5px; font-style:normal; line-height:1.45; }
+.scan-field { display:flex; align-items:center; gap:12px; }
+.scan-field span { flex:none; width:58px; color:var(--muted); font-size:11px; }
+.scan-field input { flex:1; min-height:44px; padding:0 15px; border:1px solid var(--line); border-radius:12px; background:white; font-family:inherit; font-size:13px; color:var(--ink); }
+.scan-clash { margin:-4px 0 0 70px; color:#8a7434; font-size:11px; line-height:1.45; }
+.scan-macros { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin:0; padding:13px; border:1px solid var(--line); border-radius:14px; background:white; }
+.scan-macros legend { padding:0 6px; color:var(--muted); font-size:10.5px; }
+.scan-macros label { display:flex; flex-direction:column; gap:5px; }
+.scan-macros span { color:var(--muted); font-size:10px; }
+.scan-macros input { width:100%; min-height:38px; padding:0 8px; border:1px solid var(--line); border-radius:9px; background:var(--surface); font-family:inherit; font-size:13px; text-align:center; color:var(--ink); }
+.scan-actions { display:flex; gap:10px; }
+.scan-actions button { flex:1; }
+
+/* ---- Scanned foods ---- */
+.pantry-section { margin-top:44px; }
+.pantry-list { margin-top:16px; display:flex; flex-wrap:wrap; gap:9px; }
+.pantry-list span { position:relative; display:flex; flex-direction:column; gap:2px; padding:11px 34px 11px 14px; border:1px solid var(--line); border-radius:13px; background:white; }
+.pantry-list span.provisional { border-color:#d8c48a; background:#fdf8ea; }
+.pantry-list strong { font-size:13px; letter-spacing:-.02em; }
+.pantry-list small { color:var(--muted); font-size:10.5px; }
+.pantry-list em { color:#8a7434; font-size:9px; font-style:normal; }
+.pantry-list button { position:absolute; top:8px; right:8px; width:20px; height:20px; border:0; border-radius:999px; background:transparent; color:var(--muted); font-size:14px; line-height:1; cursor:pointer; }
+.pantry-list button:hover { color:var(--ink); }
+@media (max-width:720px) {
+  .scan-sheet { padding:18px; border-radius:18px; }
+  .scan-macros { grid-template-columns:repeat(3,1fr); }
+  .scan-field { align-items:stretch; flex-direction:column; gap:5px; }
+  .scan-field span { width:auto; }
+  .scan-clash { margin-left:0; }
+}
