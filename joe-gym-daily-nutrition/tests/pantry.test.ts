@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { aliasCollision, buildPantryFood, readPantry, toFood, writePantry, type PantryFood } from "../lib/pantry";
+import { aliasCollision, amountForParser, buildPantryFood, readPantry, toFood, writePantry, type PantryFood } from "../lib/pantry";
 import { parseFood } from "../lib/food-parser";
 import { lookupFood, priceMeal, type DayState } from "../lib/nutrition-tools";
 import { readProduct } from "../lib/barcode";
@@ -149,5 +149,44 @@ describe("what gets remembered", () => {
     const back = readPantry(storage);
     expect(back).toHaveLength(1);
     expect(back[0].name).toBe("greek yog");
+  });
+});
+
+describe("the amount Joe types after scanning", () => {
+  /** The parser reads weights and bare counts. A serving noun would fall through to the
+   *  portion default and then be flagged as an amount the app supplied — backwards, when he
+   *  has just told it. */
+  test("keeps a weight as it stands", () => {
+    expect(amountForParser("150g")).toBe("150g");
+    expect(amountForParser(" 40 g ")).toBe("40 g");
+    expect(amountForParser("250ml")).toBe("250ml");
+  });
+
+  test("reduces a counted serving to the count", () => {
+    expect(amountForParser("1 pot")).toBe("1");
+    expect(amountForParser("2 servings")).toBe("2");
+    expect(amountForParser("one slice")).toBe("one");
+    expect(amountForParser("3")).toBe("3");
+  });
+
+  test("leaves anything else for the parser to complain about", () => {
+    expect(amountForParser("")).toBe("");
+    expect(amountForParser("a good scoop")).toBe("a good scoop");
+  });
+
+  test("a counted serving is not flagged as an amount the app supplied", () => {
+    const pot = buildPantryFood({
+      barcode: "5016805010255",
+      name: "veetee pot",
+      per100g: { calories: 152, protein: 2.3, carbs: 31.7, fat: 1.8, fibre: 0.6 },
+      fibreUnknown: false,
+      edited: true,
+      product: { servingGrams: 130, servingLabel: "pot" },
+    });
+    const parsed = parseFood(`${amountForParser("1 pot")} veetee pot`, [toFood(pot)]);
+
+    expect(parsed.items).toHaveLength(1);
+    expect(parsed.items[0].grams).toBe(130);
+    expect(parsed.items[0].assumed).toBeUndefined();
   });
 });

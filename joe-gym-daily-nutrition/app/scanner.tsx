@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ScanResult, ScannedProduct } from "@/lib/barcode";
-import { aliasCollision, buildPantryFood, NOT_A_NAME, type PantryFood } from "@/lib/pantry";
+import { aliasCollision, amountForParser, buildPantryFood, NOT_A_NAME, type PantryFood } from "@/lib/pantry";
 
 /**
  * Scanning a barcode.
@@ -180,7 +180,7 @@ export default function Scanner({
       edited,
       product,
     });
-    onSave(entry, draft.amount.trim());
+    onSave(entry, amountForParser(draft.amount));
   }
 
   return (

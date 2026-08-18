@@ -77,6 +77,21 @@ export function buildPantryFood(args: {
   };
 }
 
+/**
+ * What Joe typed in the amount box, as something the food parser reads.
+ *
+ * It understands weights and bare counts, not serving nouns — "1 pot" would fall through to
+ * the portion default and then be flagged as an amount the app supplied, which is exactly
+ * backwards when he has just told it. A count with a unit word becomes the count on its own.
+ */
+export function amountForParser(amount: string): string {
+  const text = amount.trim().toLowerCase();
+  if (!text) return "";
+  if (/\d\s*(g|grams?|grammes?|ml)\b/.test(text)) return text;
+  const counted = text.match(/^(\d+(?:\.\d+)?|a|an|one|two|three|four)\b\s*[a-z]*$/);
+  return counted ? counted[1] : text;
+}
+
 /** A pantry entry in the shape the parser and the chat tools already understand. */
 export function toFood(entry: PantryFood): Food {
   return {

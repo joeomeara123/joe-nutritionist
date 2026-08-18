@@ -137,3 +137,26 @@ describe("responses that cannot be used", () => {
     expect(result.product.convertedFromServing).toBe(true);
   });
 });
+
+describe("naming one serving", () => {
+  /** `serving_size` is free text. Only the noun is wanted — the weight is already in
+   *  `serving_quantity`, and repeating it produced the hint "e.g. 1 1 Pot (130g)". */
+  test("takes the noun out of the label's own wording", () => {
+    const cases: Array<[string, string]> = [
+      ["1 Pot (130g)", "pot"],
+      ["1 serving (100 g)", "serving"],
+      ["1 slice", "slice"],
+      ["30g", "serving"],
+      ["2 teaspoons (10 g)", "serving"],
+      ["", "serving"],
+    ];
+    for (const [raw, expected] of cases) {
+      const result = readProduct(
+        { status: 1, product: { product_name: "x", serving_size: raw, serving_quantity: 10, nutriments: { "energy-kcal_100g": 1, proteins_100g: 1, carbohydrates_100g: 1, fat_100g: 1 } } },
+        "111",
+      );
+      if (!result.found) throw new Error("expected a product");
+      expect([raw, result.product.servingLabel]).toEqual([raw, expected]);
+    }
+  });
+});

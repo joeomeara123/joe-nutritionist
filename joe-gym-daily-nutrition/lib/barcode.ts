@@ -65,6 +65,23 @@ export function normaliseBarcode(input: string): string | null {
   return digits;
 }
 
+
+/**
+ * A noun for one serving, out of whatever the label happened to say.
+ *
+ * `serving_size` is free text and arrives as "1 Pot (130g)", "2 teaspoons (10 g)", "30g" or
+ * "1 slice". Only the noun is wanted — the weight is already in `serving_quantity`, and
+ * repeating it produces hints like "e.g. 1 1 Pot (130g)". A serving that is more than one of
+ * something has no single-item noun, so it stays "serving" rather than being pluralised wrong.
+ */
+function readServingLabel(raw: string): string {
+  const text = raw.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+  const counted = text.match(/^(\d+(?:\.\d+)?)\s+(.+)$/);
+  const noun = counted ? (Number(counted[1]) === 1 ? counted[2] : "") : text;
+  // "30g" is a weight, not a noun; anything with a digit left in it is not a name for a thing.
+  return noun && !/\d/.test(noun) ? noun : "serving";
+}
+
 type OffResponse = { status?: number; product?: Record<string, unknown> };
 
 export function readProduct(raw: unknown, barcode: string): ScanResult {
@@ -89,7 +106,7 @@ export function readProduct(raw: unknown, barcode: string): ScanResult {
 
   const fibre = num(n.fiber_100g);
   const servingGrams = num(product.serving_quantity);
-  const servingSize = typeof product.serving_size === "string" ? product.serving_size.trim() : "";
+  const servingLabel = readServingLabel(typeof product.serving_size === "string" ? product.serving_size : "");
 
   return {
     found: true,
@@ -105,7 +122,7 @@ export function readProduct(raw: unknown, barcode: string): ScanResult {
         fat: round1(fat),
         fibre: fibre === undefined ? null : round1(fibre),
       },
-      ...(servingGrams ? { servingGrams, servingLabel: servingSize || "serving" } : {}),
+      ...(servingGrams ? { servingGrams, servingLabel } : {}),
       caloriesFromKilojoules: kcal === undefined,
       convertedFromServing: product.nutrition_data_per === "serving",
       url: `https://world.openfoodfacts.org/product/${barcode}`,
