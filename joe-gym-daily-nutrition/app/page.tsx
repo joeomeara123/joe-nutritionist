@@ -328,6 +328,22 @@ export default function Home() {
     requestAnimationFrame(() => document.getElementById("meal-entry")?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
 
+  /** Both ways of changing day go through here: the open meal editor holds an id from the day
+   *  being left, and a half-typed preview belongs to it too. */
+  function goToDay(date: string) {
+    if (!date || date > today) return;
+    setSelectedDate(date);
+    setPreviewItems([]);
+    setEditing(null);
+  }
+
+  /** Noon rather than midnight, so a clock change cannot land the step on the same day twice. */
+  function shiftDay(days: number) {
+    const moved = new Date(`${selectedDate}T12:00:00`);
+    moved.setDate(moved.getDate() + days);
+    goToDay(dateKey(moved));
+  }
+
   function removeMeal(id: string) {
     setDiary((current) => ({ ...current, [selectedDate]: (current[selectedDate] || []).filter((meal) => meal.id !== id) }));
   }
@@ -372,7 +388,11 @@ export default function Home() {
         <label className="date-button import-button" title="Import a diary exported from the old Codex-hosted site">Import
           <input type="file" accept="application/json,.json" onChange={importDiary} />
         </label>
-        <label className="date-button">Day<input type="date" value={selectedDate} max={today} onChange={(event) => { setSelectedDate(event.target.value); setPreviewItems([]); }} /></label>
+        <div className="day-nav">
+          <button type="button" onClick={() => shiftDay(-1)} aria-label="Previous day">‹</button>
+          <label className="date-button">Day<input type="date" value={selectedDate} max={today} onChange={(event) => goToDay(event.target.value)} /></label>
+          <button type="button" onClick={() => shiftDay(1)} disabled={selectedDate >= today} aria-label="Next day">›</button>
+        </div>
       </header>
 
       <section className="plate-section">

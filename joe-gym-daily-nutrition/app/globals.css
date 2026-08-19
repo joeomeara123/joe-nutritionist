@@ -335,3 +335,14 @@ footer span { font-family:var(--font-geist-mono),monospace; }
   .scan-actions { flex-wrap:wrap; }
   .scan-actions .log-button { flex-basis:100%; order:-1; }
 }
+
+/* ---- Flicking between days ---- */
+.day-nav { margin-left:auto; display:flex; align-items:center; gap:6px; }
+.day-nav .date-button { margin-left:0; }
+.day-nav button { width:30px; height:30px; flex:none; display:grid; place-items:center; padding:0; border:1px solid var(--line); border-radius:999px; color:var(--ink); background:var(--surface); font-family:inherit; font-size:15px; line-height:1; cursor:pointer; }
+.day-nav button:hover:not(:disabled) { border-color:var(--ink); }
+.day-nav button:disabled { opacity:.3; cursor:default; }
+@media (max-width:720px) {
+  .day-nav { gap:4px; }
+  .day-nav button { width:28px; height:28px; }
+}
