@@ -346,3 +346,13 @@ footer span { font-family:var(--font-geist-mono),monospace; }
   .day-nav { gap:4px; }
   .day-nav button { width:28px; height:28px; }
 }
+
+/* ---- What the parser could not place ---- */
+.preview-missing { grid-column:1/-1; display:flex; flex-wrap:wrap; align-items:center; gap:6px 9px; padding:11px 14px; border:1px solid #e0b4a6; border-radius:13px; background:#fdf1ec; }
+.preview-missing strong { color:#9a4b32; font-size:11px; letter-spacing:-.01em; }
+.preview-missing span { display:flex; flex-direction:column; gap:2px; padding:5px 10px; border:1px solid #e0b4a6; border-radius:9px; background:white; color:var(--ink); font-size:11.5px; }
+.preview-missing em { color:#9a4b32; font-size:9.5px; font-style:normal; }
+.preview-missing-actions { display:flex; flex-wrap:wrap; gap:7px; margin-left:auto; }
+.preview-missing-actions button { padding:7px 13px; border:1px solid #e0b4a6; border-radius:999px; color:#9a4b32; background:white; font-family:inherit; font-size:10.5px; font-weight:650; cursor:pointer; }
+.preview-missing-actions button:hover { border-color:#9a4b32; }
+@media (max-width:720px) { .preview-missing-actions { margin-left:0; width:100%; } .preview-missing-actions button { flex:1; } }

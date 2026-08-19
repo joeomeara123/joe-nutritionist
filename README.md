@@ -70,6 +70,11 @@ intermittently, and some products publish only a per-bagel or per-tablespoon col
 foods looked unsourceable when in the end none were. Re-check, and look beyond one retailer,
 before concluding a food cannot be sourced. Never fill one in from a similar product.
 
+Anything the parser cannot place is named in the preview, in the words Joe wrote, with the
+stocked foods it might have meant and the two ways to tell the app what it was — scan the
+barcode, or type the macros. It used to return that list and never render it, so a line naming
+three foods could price one of them and leave no trace of the other two.
+
 Quantities the app supplies rather than reads are flagged in the preview. There are two kinds,
 and they are different: `"quantity"` (a food named with no amount — peanut butter could be 10g
 or 40g) and `"portionSize"` (pieces counted, but what one piece weighs is a guess; the chicken

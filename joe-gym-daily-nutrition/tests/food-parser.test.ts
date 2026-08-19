@@ -5,14 +5,15 @@ type ParseResult = {
   items: Array<{ id: string; display: string; grams: number; calories: number; protein: number; carbs: number; fat: number; fibre: number; weighedGrams?: number; weighedAs?: string; assumed?: "quantity" | "portionSize" }>;
   unknown: string[];
 };
-const parseFood = "parseFood" in parserModule
-  ? parserModule.parseFood as (text: string) => ParseResult
-  : undefined;
+const parseFood = (parserModule as { parseFood?: (text: string) => ParseResult }).parseFood
+  ?? ((): ParseResult => { throw new Error("parseFood is not exported"); });
+type StoredFood = { id: string; name: string; aliases: string[]; basis: "100g" | "portion" } & Record<string, unknown>;
+const suggestFoods = (parserModule as { suggestFoods?: (fragment: string, extra?: StoredFood[]) => string[] }).suggestFoods
+  ?? ((): string[] => { throw new Error("suggestFoods is not exported"); });
 
 describe("recommendation food logging", () => {
   test("parses a protein bagel and weighed peanut butter from a recommendation", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("one protein bagel and 15g peanut butter");
 
@@ -23,7 +24,6 @@ describe("recommendation food logging", () => {
 
   test("scales counted beetroot veggie cakes by the complete cake portion", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("four beetroot veggie cakes");
 
@@ -38,7 +38,6 @@ describe("recommendation food logging", () => {
 describe("unrecognised foods are reported, never silently dropped", () => {
   test("reports an unknown item even when another item in the same line matched", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("200g cooked chicken thighs and 40g quinoa");
 
@@ -48,7 +47,6 @@ describe("unrecognised foods are reported, never silently dropped", () => {
 
   test("still reports the whole line when nothing matched", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("a bowl of quinoa");
 
@@ -60,7 +58,6 @@ describe("unrecognised foods are reported, never silently dropped", () => {
 describe("cooking oil is a first-class food", () => {
   test("prices weighed olive oil as pure fat", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("4g olive oil");
 
@@ -72,7 +69,6 @@ describe("cooking oil is a first-class food", () => {
 
   test("counts oil alongside the meat it is cooked with", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("308g cooked chicken thighs and 4g olive oil");
 
@@ -84,7 +80,6 @@ describe("cooking oil is a first-class food", () => {
 describe("raw weights convert to the cooked basis instead of failing quietly", () => {
   test("converts a raw chicken thigh weight using the cooking yield", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("428g raw chicken thighs");
 
@@ -98,7 +93,6 @@ describe("raw weights convert to the cooked basis instead of failing quietly", (
 
   test("does not fall back to a single portion when 'raw' precedes the food", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("428g raw chicken thighs");
 
@@ -108,7 +102,6 @@ describe("raw weights convert to the cooked basis instead of failing quietly", (
 
   test("leaves an explicitly cooked weight unconverted", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("308g cooked chicken thighs");
 
@@ -117,7 +110,6 @@ describe("raw weights convert to the cooked basis instead of failing quietly", (
 
   test("treats 'uncooked' as raw, not as an unqualified weight", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("428g uncooked chicken thighs");
 
@@ -130,7 +122,6 @@ describe("raw weights convert to the cooked basis instead of failing quietly", (
 describe("cooked and uncooked corrections run both ways", () => {
   test("leaves a cooked pasta weight alone, since the label itself is cooked", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("225g of cooked pasta");
 
@@ -140,7 +131,6 @@ describe("cooked and uncooked corrections run both ways", () => {
 
   test("scales a dry pasta weight up to the cooked basis it is stored on", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     // Joe's own ratio: 100g dry makes 225g cooked.
     expect(parseFood("100g of uncooked pasta").items[0].grams).toBeCloseTo(225, 1);
@@ -149,7 +139,6 @@ describe("cooked and uncooked corrections run both ways", () => {
 
   test("corrects meat and pasta in opposite directions from the same word", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     // Both are stored cooked, so "cooked" is a no-op on each.
     expect(parseFood("200g cooked chicken thighs").items[0].grams).toBeCloseTo(200, 1);
@@ -161,7 +150,6 @@ describe("cooked and uncooked corrections run both ways", () => {
 
   test("takes an unqualified weight as uncooked, the way Joe weighs things", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     // He weighs out of the packet. Reading "100g pasta" as 100g cooked would log a third of
     // what he is about to eat, so the default matters more than it looks.
@@ -175,7 +163,6 @@ describe("cooked and uncooked corrections run both ways", () => {
 describe("digits count as counts", () => {
   test("multiplies a numeral by the portion, as the number words already did", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const digits = parseFood("3 chicken thighs");
     const words = parseFood("three chicken thighs");
@@ -188,7 +175,6 @@ describe("digits count as counts", () => {
 describe("a weight in brackets is still a weight", () => {
   test("reads the bracketed weight after the food and prefers it over the count", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("3 chicken thighs (392g uncooked)");
 
@@ -203,7 +189,6 @@ describe("a weight in brackets is still a weight", () => {
 describe("a bracketed weight before the food", () => {
   test("reads '3 uncooked (392g) chicken thighs' as the stated raw weight", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("I just ate 3 uncooked (392g) chicken thighs");
 
@@ -215,7 +200,6 @@ describe("a bracketed weight before the food", () => {
 describe("a weight belongs to its own food", () => {
   test("does not take the next clause's weight across a comma", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("chicken thighs, 100g pasta");
     const chicken = result.items.find((item) => item.id === "chicken-thigh");
@@ -230,7 +214,6 @@ describe("a weight belongs to its own food", () => {
 describe("spoons are a quantity", () => {
   test("reads a spoon measure given after the food in brackets", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("some pesto (2 teaspoons)");
 
@@ -240,7 +223,6 @@ describe("spoons are a quantity", () => {
 
   test("prices teaspoons of pesto instead of defaulting to 100g", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("2 teaspoons of pesto");
 
@@ -250,7 +232,6 @@ describe("spoons are a quantity", () => {
 
   test("uses the food's own tablespoon weight where it has one", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("2 tbsp olive oil");
 
@@ -262,7 +243,6 @@ describe("spoons are a quantity", () => {
 describe("an unstated quantity is a serving, not 100g", () => {
   test("gives bare pesto a tablespoon rather than a third of a jar", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("chicken thighs with pesto");
     const pesto = result.items.find((item) => item.id === "pesto");
@@ -273,7 +253,6 @@ describe("an unstated quantity is a serving, not 100g", () => {
 
   test("does not flag a quantity Joe actually stated", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     expect(parseFood("30g pesto").items[0].assumed).toBeUndefined();
     expect(parseFood("2 tsp pesto").items[0].assumed).toBeUndefined();
@@ -287,7 +266,6 @@ describe("the second sentence Joe typed, with the weight and the spoons in brack
 
   test("reads all three quantities", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood(line);
 
@@ -301,7 +279,6 @@ describe("the second sentence Joe typed, with the weight and the spoons in brack
 
   test("totals the same as the same meal written without brackets", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const bracketed = parseFood(line).items;
     const plain = parseFood("392g raw chicken thighs, 100g uncooked pasta and 10g pesto").items;
@@ -317,7 +294,6 @@ describe("the whole sentence Joe actually typed", () => {
 
   test("reads every quantity he gave", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood(line);
 
@@ -330,7 +306,6 @@ describe("the whole sentence Joe actually typed", () => {
 
   test("totals the meal correctly", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const items = parseFood(line).items;
     const sum = (key: "calories" | "protein" | "fat" | "fibre") => items.reduce((total, item) => total + item[key], 0);
@@ -346,7 +321,6 @@ describe("the whole sentence Joe actually typed", () => {
 describe("a counted portion is a count, not a weight", () => {
   test("flags the per-item weight it had to assume", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("3 chicken thighs");
 
@@ -358,7 +332,6 @@ describe("a counted portion is a count, not a weight", () => {
 
   test("does not flag a counted pack item, whose portion is the unit itself", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     // A Veetee pot is a pot and a bagel is a bagel; only variable-size foods carry the flag.
     expect(parseFood("one Veetee sticky rice pot").items[0].assumed).toBeUndefined();
@@ -367,7 +340,6 @@ describe("a counted portion is a count, not a weight", () => {
 
   test("a bare mention of a whole-unit food means one of them, not a guess", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     const result = parseFood("peanut butter bagel");
     const bagel = result.items.find((item) => item.id === "protein-bagel");
@@ -382,7 +354,6 @@ describe("a counted portion is a count, not a weight", () => {
 
   test("a stated weight overrides the assumption entirely", () => {
     expect(typeof parseFood).toBe("function");
-    if (!parseFood) return;
 
     expect(parseFood("3 chicken thighs (392g uncooked)").items[0].assumed).toBeUndefined();
   });
@@ -488,5 +459,96 @@ describe("three ways a stated fact went missing", () => {
     expect(result.items.map((item) => item.id)).toEqual(["chicken-thigh", "sticky-rice", "nandos"]);
     expect(result.items[0].grams).toBe(192);
     expect(result.unknown).toHaveLength(0);
+  });
+});
+
+/**
+ * "250g of mince, a veetee pot, mixed veg" priced the mince and silently binned the other two,
+ * so a 294 kcal preview stood in for a meal with a rice pot and a plate of veg in it. The
+ * parser knew — `unknown` had both — and nothing was showing it.
+ */
+describe("saying what was not recognised", () => {
+  const line = "250g of mince, a veetee pot, mixed veg";
+
+  test("hands back the words as Joe wrote them, not a stripped remnant", () => {
+    expect(parseFood(line).unknown).toEqual(["a veetee pot", "mixed veg"]);
+  });
+
+  test("does not report the parts it did understand", () => {
+    expect(parseFood("250g of mince and 100g broccoli").unknown).toHaveLength(0);
+  });
+
+  test("suggests the foods an unrecognised phrase might have meant", () => {
+    const suggestions = suggestFoods("a veetee pot");
+    expect(suggestions).toContain("Veetee sticky rice pot");
+    expect(suggestions).toContain("Veetee jasmine rice pot");
+  });
+
+  /**
+   * Two Veetee pots are stocked and "a veetee pot" does not say which. Guessing one is exactly
+   * the move this app is built against — so it asks, rather than quietly picking the cheaper
+   * of the two by 4 kcal.
+   */
+  test("does not resolve an ambiguous product to one of the candidates", () => {
+    expect(parseFood("a veetee pot").items).toHaveLength(0);
+  });
+
+  test("suggests nothing rather than reaching, when nothing is close", () => {
+    expect(suggestFoods("mixed veg")).toHaveLength(0);
+    expect(suggestFoods("quinoa")).toHaveLength(0);
+  });
+
+  test("a scanned food is offered too", () => {
+    const scanned = { id: "pantry:1", name: "skyr", aliases: ["skyr"], basis: "100g" as const, calories: 63, protein: 11, carbs: 4, fat: 0.2, fibre: 0 };
+    expect(suggestFoods("strawberry skyr", [scanned])).toContain("skyr");
+  });
+});
+
+describe("eggs, and how a food was cooked", () => {
+  test("knows an egg, and flags the size of a counted one", () => {
+    expect(parseFood("2 eggs").items[0].grams).toBe(100);
+    expect(parseFood("2 eggs").items[0].assumed).toBe("portionSize");
+    expect(parseFood("100g free range eggs").items[0].calories).toBeCloseTo(143, 1);
+    expect(parseFood("3 scrambled eggs").unknown).toHaveLength(0);
+  });
+
+  /**
+   * Treating "grilled" as noise to be ignored gets it out of the way of the unknown scan but
+   * not out of the way of the weight scan — "200g grilled chicken" logged one 64g thigh, a
+   * stated weight lost to an adjective. It is read as a basis word, so the number reaches the
+   * food and the chicken is taken as cooked rather than converted down as if it were raw.
+   */
+  test("a stated weight reaches the food across the way it was cooked", () => {
+    const grilled = parseFood("200g grilled chicken").items[0];
+    expect(grilled.grams).toBe(200);
+    expect(grilled.weighedGrams).toBeUndefined();
+    expect(parseFood("100g pan-fried salmon").items[0].grams).toBe(100);
+    expect(parseFood("3 grilled chicken thighs").items[0].grams).toBe(192);
+  });
+
+  test("raw still converts, in the other direction", () => {
+    const raw = parseFood("192g raw chicken thighs").items[0];
+    expect(raw.weighedGrams).toBe(192);
+    expect(raw.grams).toBeCloseTo(138.2, 1);
+  });
+
+  test("reads a whole plate without dropping anything", () => {
+    const result = parseFood("3 scrambled eggs and 200g grilled chicken");
+    expect(result.items.map((item) => item.id)).toEqual(["egg", "chicken-thigh"]);
+    expect(result.items[1].grams).toBe(200);
+    expect(result.unknown).toHaveLength(0);
+  });
+});
+
+describe("what 'not counted' actually names", () => {
+  test("reports the part that was missed, not the part that was counted", () => {
+    const result = parseFood("a chicken katsu curry");
+    expect(result.items.map((item) => item.id)).toEqual(["chicken-thigh"]);
+    // The "a" went to the chicken as its count, so it is not left over either.
+    expect(result.unknown).toEqual(["katsu curry"]);
+  });
+
+  test("keeps a weight that belonged to something it did not know", () => {
+    expect(parseFood("200g quinoa").unknown).toEqual(["200g quinoa"]);
   });
 });

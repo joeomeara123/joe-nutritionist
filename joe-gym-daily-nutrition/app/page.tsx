@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { FOODS, parseFood, scaled, type Macros, type ParsedFood } from "@/lib/food-parser";
+import { FOODS, parseFood, scaled, suggestFoods, type Macros, type ParsedFood } from "@/lib/food-parser";
 import { recommendDay, type Suggestion } from "@/lib/recommendations";
 import { pantryFoods, readPantry, writePantry, type PantryFood } from "@/lib/pantry";
 import { EMPTY_DRAFT, draftFromMacros, readMacros, type MacroDraft } from "@/lib/macros";
@@ -102,6 +102,9 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
   const [entry, setEntry] = useState("");
   const [previewItems, setPreviewItems] = useState<ParsedFood[]>([]);
+  // What the parser could not place. Shown rather than dropped: a meal quietly missing two of
+  // its three components still looks like an answer.
+  const [previewUnknown, setPreviewUnknown] = useState<string[]>([]);
   const [parseError, setParseError] = useState("");
   const [listening, setListening] = useState(false);
   const [mealName, setMealName] = useState("Lunch");
@@ -165,8 +168,11 @@ export default function Home() {
     event?.preventDefault();
     if (!entry.trim()) return;
     const parsed = parseFood(entry, scannedFoods);
+    setPreviewUnknown(parsed.unknown);
     if (!parsed.items.length) {
-      setParseError("I couldn’t recognise that yet. Try: “200g cooked chicken, one sticky rice pot and 150g broccoli”.");
+      // The panel below names what it did not know and offers the two ways to tell it, which
+      // beats an example sentence that does not mention the food Joe actually typed.
+      setParseError(parsed.unknown.length ? "" : "Say what you ate — “200g cooked chicken, one sticky rice pot and 150g broccoli”.");
       setPreviewItems([]);
       return;
     }
@@ -188,6 +194,7 @@ export default function Home() {
     setDiary((current) => ({ ...current, [selectedDate]: [...(current[selectedDate] || []), meal] }));
     setEntry("");
     setPreviewItems([]);
+    setPreviewUnknown([]);
   }
 
   /** A meal with no foods in it: the numbers are Joe's, which makes them the best source the
@@ -324,6 +331,7 @@ export default function Home() {
     setEntryMode("describe");
     setEntry(text);
     setPreviewItems(parsed.items);
+    setPreviewUnknown(parsed.unknown);
     setParseError(parsed.items.length ? "" : `Saved ${food.name}, but I couldn't read “${amount}” as an amount. Try “150g”.`);
     requestAnimationFrame(() => document.getElementById("meal-entry")?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
@@ -334,6 +342,7 @@ export default function Home() {
     if (!date || date > today) return;
     setSelectedDate(date);
     setPreviewItems([]);
+    setPreviewUnknown([]);
     setEditing(null);
   }
 
@@ -352,6 +361,7 @@ export default function Home() {
     const parsed = parseFood(suggestion.logText, scannedFoods);
     setEntry(suggestion.logText);
     setPreviewItems(parsed.items);
+    setPreviewUnknown(parsed.unknown);
     setParseError("");
     setMealName(suggestion.kind === "snack" ? "Snack" : properMealCount ? "Dinner" : "Lunch");
     requestAnimationFrame(() => document.getElementById("meal-entry")?.scrollIntoView({ behavior: "smooth", block: "center" }));
@@ -493,6 +503,26 @@ export default function Home() {
           </div>
         )}
         {parseError && <p className="parse-error" role="alert">{parseError}</p>}
+        {/* Anything the parser could not place, with the two ways out of it. "I don't know that"
+            on its own is half a rule — it needs "and here is how to tell me" attached. */}
+        {previewUnknown.length > 0 && (
+          <div className="preview-missing" role="alert">
+            <strong>{previewItems.length ? "Not counted:" : "I don’t know:"}</strong>
+            {previewUnknown.map((fragment) => {
+              const suggestions = suggestFoods(fragment, scannedFoods);
+              return (
+                <span key={fragment}>
+                  “{fragment}”
+                  {suggestions.length > 0 && <em>did you mean {suggestions.join(" or ")}?</em>}
+                </span>
+              );
+            })}
+            <div className="preview-missing-actions">
+              <button type="button" onClick={() => setScanning(true)}>Scan its barcode</button>
+              <button type="button" onClick={() => { setEntryMode("macros"); setPreviewUnknown([]); setParseError(""); }}>Type its macros</button>
+            </div>
+          </div>
+        )}
         {showPreview && (
           <div className="preview-panel">
             {entryMode === "describe" ? (
@@ -501,7 +531,7 @@ export default function Home() {
               <div className="preview-foods"><span>{entry.trim() || "Typed in"}<strong>your figures</strong>{typedMacros?.fibreUnknown && <em>no fibre figure — counts as 0</em>}</span></div>
             )}
             <div className="preview-totals"><span><strong>{round(previewMacros.calories)}</strong> kcal</span><span><strong>{round(previewMacros.protein, 1)}g</strong> protein</span><span><strong>{round(previewMacros.carbs, 1)}g</strong> carbs</span><span><strong>{round(previewMacros.fat, 1)}g</strong> fat</span><span><strong>{round(previewMacros.fibre, 1)}g</strong> fibre</span></div>
-            <div className="preview-actions"><button type="button" className="ghost-button" onClick={() => { setPreviewItems([]); setMacroDraft(EMPTY_DRAFT); }}>Change it</button><button type="button" className="log-button" onClick={entryMode === "macros" ? logTypedMeal : logMeal}>Log this {mealName.toLowerCase()}</button></div>
+            <div className="preview-actions"><button type="button" className="ghost-button" onClick={() => { setPreviewItems([]); setPreviewUnknown([]); setMacroDraft(EMPTY_DRAFT); }}>Change it</button><button type="button" className="log-button" onClick={entryMode === "macros" ? logTypedMeal : logMeal}>Log this {mealName.toLowerCase()}</button></div>
           </div>
         )}
       </section>

@@ -76,6 +76,11 @@ export const FOODS: Food[] = [
   // Sainsbury's own listing for the Veetee pots carries no table, so these come from the
   // packaging as transcribed on Open Food Facts. Both agreed to the decimal with the figures
   // already in the app, which is the corroboration that makes a community source usable here.
+  // Sainsbury's medium and large egg packs publish the same table, which is the corroboration
+  // that makes it usable. Their fibre column reads 0.5g on both; an egg contains no plant
+  // material and no fibre, so that is a transcription error and it is recorded as 0.
+  { id: "egg", name: "Eggs", aliases: ["free range eggs", "scrambled eggs", "boiled eggs", "fried eggs", "poached eggs", "eggs", "egg"], basis: "100g", portionGrams: 50, portionLabel: "egg", portionVaries: true, calories: 143, protein: 14.1, carbs: 0.5, fat: 9.6, fibre: 0,
+    source: { product: "Sainsbury's 12 British Free Range Eggs, Medium", url: "https://world.openfoodfacts.org/product/01454468", basis: "per 100g of egg; the 50g portion is the edible weight of a medium egg rather than a label figure, so a counted egg is flagged as an assumed size" } },
   { id: "sticky-rice", name: "Veetee sticky rice pot", aliases: ["veetee sticky rice", "vt sticky rice", "sticky rice pot", "sticky rice", "veetee cooked rice", "vt cooked rice", "veetee rice pot", "vt rice pot", "veetee rice", "vt rice"], basis: "portion", portionGrams: 130, portionLabel: "pot", calories: 198, protein: 3, carbs: 41.2, fat: 2.3, fibre: 0,
     source: { product: "Veetee Heat & Eat Sticky Rice Pot", url: "https://uk-gd.openfoodfacts.org/product/5016805010255/sticky-rice-veetee", basis: "per 100g (152kcal 2.3P 31.7C 1.8F), scaled to the 130g pot the label names; fibre is not published" } },
   { id: "jasmine-rice", name: "Veetee jasmine rice pot", aliases: ["veetee jasmine rice", "vt jasmine rice", "jasmine rice pot", "jasmine rice"], basis: "portion", portionGrams: 140, portionLabel: "pot", calories: 202, protein: 4.1, carbs: 40.7, fat: 2.1, fibre: 1.7,
@@ -138,11 +143,24 @@ const round = (value: number, places = 0) => Number(value.toFixed(places));
 const COUNT = "\\d+(?:\\.\\d+)?|a|an|one|two|three|four";
 const countOf = (token: string) => (token in numberWords ? numberWords[token] : Number(token));
 
-/** "cooked" is a prefix of "uncooked", so the longer word has to be tried first. */
-const BASIS = "uncooked|cooked|raw|dry";
+/**
+ * How a food was cooked, in the words Joe actually uses.
+ *
+ * The preparation words belong here rather than in the filler list. Treating "grilled" as noise
+ * to be ignored gets it out of the way of the *unknown* scan but not out of the way of the
+ * weight scan, so "200g grilled chicken" quietly logged one 64g thigh — a stated weight lost
+ * to an adjective. Naming them here means the number reaches the food, and it means "grilled"
+ * is read for what it says: that the chicken was cooked.
+ *
+ * "cooked" is a prefix of "uncooked", so the longer word has to be tried first.
+ */
+const BASIS = "uncooked|cooked|raw|dry|scrambled|poached|pan[ -]?fried|fried|boiled|grilled|roasted|baked|steamed";
+const UNCOOKED = new Set(["raw", "uncooked", "dry"]);
 const cookStateOf = (word?: string): CookState | undefined => {
-  if (word === "raw" || word === "uncooked" || word === "dry") return "uncooked";
-  return word === "cooked" ? "cooked" : undefined;
+  if (!word) return undefined;
+  if (UNCOOKED.has(word)) return "uncooked";
+  // Everything else the pattern matches is a way of having cooked something.
+  return "cooked";
 };
 
 const GENERIC_TBSP_GRAMS = 15;
@@ -179,7 +197,7 @@ export function scaled(food: Food, grams: number): ParsedFood {
 // Words that carry no food identity, so a leftover fragment made only of these is not an
 // unrecognised food — it is the grammar around one we already matched.
 const FILLER =
-  /\b(a|an|one|two|three|four|and|with|plus|of|some|the|my|then|also|served|side|sides|bowl|plate|portion|portions|cooked|uncooked|raw|dry|weighed|just|had|ate|eaten|eating|having|made|i|about|approx|approximately|am|are|is|was|were|be|been|to|have|has|going|want|fancy|for|now|today|tonight|lunch|dinner|breakfast|g|grams?|grammes?|kg|ml|tbsps?|tsps?|tablespoons?|teaspoons?|spoon|spoons?|large|small|medium|extra|more|little|bit|pots?|tubs?|jars?|tins?|packs?|punnets?|knobs?|servings?|slices?|handfuls?|drizzle|splash|pinch)\b/g;
+  /\b(a|an|one|two|three|four|and|with|plus|of|some|the|my|then|also|served|side|sides|bowl|plate|portion|portions|cooked|uncooked|raw|dry|weighed|just|had|ate|eaten|eating|having|made|i|about|approx|approximately|scrambled|poached|fried|boiled|grilled|roasted|baked|steamed|pan|am|are|is|was|were|be|been|to|have|has|going|want|fancy|for|now|today|tonight|lunch|dinner|breakfast|g|grams?|grammes?|kg|ml|tbsps?|tsps?|tablespoons?|teaspoons?|spoon|spoons?|large|small|medium|extra|more|little|bit|pots?|tubs?|jars?|tins?|packs?|punnets?|knobs?|servings?|slices?|handfuls?|drizzle|splash|pinch)\b/g;
 
 /**
  * Matches an alias only on word boundaries. `includes()` would match "oil" inside "boiled"
@@ -189,6 +207,32 @@ export function findAlias(haystack: string, alias: string): number {
   const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = haystack.match(new RegExp(`(?:^|[^a-z0-9])(${escaped})(?![a-z0-9])`));
   return match?.index === undefined ? -1 : match.index + match[0].length - alias.length;
+}
+
+
+const SEPARATORS = /[,;.]|\band\b|\bwith\b|\bplus\b/g;
+
+/** Where each separator sits, so a segment can be read back out of the original wording. */
+function splitPoints(value: string): Array<[number, number]> {
+  return [...value.matchAll(SEPARATORS)].map((match) => [match.index ?? 0, (match.index ?? 0) + match[0].length]);
+}
+
+/**
+ * Foods an unrecognised phrase might have meant, by shared whole word.
+ *
+ * Deliberately a suggestion and not a resolution. "a veetee pot" matches both Veetee pots and
+ * does not say which; they are 4 kcal apart, which is exactly the kind of gap that makes
+ * picking one feel harmless and makes it a guess anyway. Asking costs Joe a word.
+ */
+export function suggestFoods(fragment: string, extra: Food[] = []): string[] {
+  const words = fragment.toLowerCase().split(/\s+/).filter((word) => word.length > 2 && !FILLER.test(` ${word} `));
+  FILLER.lastIndex = 0;
+  const names = new Set<string>();
+
+  for (const food of [...extra, ...FOODS]) {
+    if (food.aliases.some((alias) => words.some((word) => findAlias(alias, word) !== -1))) names.add(food.name);
+  }
+  return [...names].slice(0, 3);
 }
 
 export function parseFood(text: string, extra: Food[] = []): { items: ParsedFood[]; unknown: string[] } {
@@ -344,10 +388,18 @@ export function parseFood(text: string, extra: Food[] = []): { items: ParsedFood
     if (spoonAfter) blankAmount(aliasEnd, aliasEnd + spoonAfter[0].length);
   }
 
-  const unknown = residue
-    .split(/[,;.]|\band\b|\bwith\b|\bplus\b/)
-    .map((segment) => segment.replace(/\d+(?:\.\d+)?/g, " ").replace(FILLER, " ").replace(/\s+/g, " ").trim())
-    .filter((segment) => /[a-z]{3}/.test(segment));
+  // What survived is reported as Joe wrote it, not as the stripped remnant used to test it.
+  // "a veetee pot" is something he can act on; "veetee" is a riddle.
+  const unknown: string[] = [];
+  let cursor = 0;
+  for (const [start, end] of [...splitPoints(residue), [residue.length, residue.length]] as Array<[number, number]>) {
+    const meaningful = residue.slice(cursor, start).replace(/\d+(?:\.\d+)?/g, " ").replace(FILLER, " ").replace(/\s+/g, " ").trim();
+    // Read out of `residue`, not the original: the foods and amounts already counted are blanked
+    // there, so "a chicken katsu curry" reports the part that was missed rather than the part
+    // that was not — the chicken in it was counted.
+    if (/[a-z]{3}/.test(meaningful)) unknown.push(residue.slice(cursor, start).replace(/\s+/g, " ").trim());
+    cursor = end;
+  }
 
   // Back into the order Joe said them, which is the order the chips read best in.
   const items = found.sort((a, b) => a.at - b.at).map((item) => {
