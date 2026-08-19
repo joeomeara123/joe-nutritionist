@@ -104,7 +104,7 @@ export const FOODS: Food[] = [
   // the oven-baked column that matches how Joe eats them.
   { id: "chips", name: "Oven chips", aliases: ["gastro chips", "oven chips", "chips"], basis: "100g", weighedAs: "cooked", cookedRatio: 0.615, calories: 270, protein: 3.1, carbs: 33.2, fat: 13.2, fibre: 2.9,
     source: { product: "McCain Gastro Triple Cooked Chips", url: "https://www.mccain.co.uk/gastro-triple-cooked-chips/", basis: "per 100g oven baked; frozen is 166kcal 1.7P 21.8C 7.7F 1.2fib, hence the 0.615 cooked ratio" } },
-  { id: "nandos", name: "Nando's PERi-PERi sauce", aliases: ["nando's hot sauce", "nandos hot sauce", "nando sauce", "nandos sauce", "peri-peri sauce", "peri peri sauce"], basis: "portion", portionGrams: 20, portionLabel: "serving", calories: 9.8, protein: 0.1, carbs: 0.3, fat: 0.8, fibre: 0,
+  { id: "nandos", name: "Nando's PERi-PERi sauce", aliases: ["nando's peri peri sauce", "nando's hot sauce", "nandos hot sauce", "nando's sauce", "nando sauce", "nandos sauce", "peri-peri sauce", "peri peri sauce"], basis: "portion", portionGrams: 20, portionLabel: "serving", calories: 9.8, protein: 0.1, carbs: 0.3, fat: 0.8, fibre: 0,
     source: sainsburys("Nando's Peri Peri Sauce Medium 125g", "nando-s-peri-peri-sauce-medium-125g", "per 100g (49kcal 0.6P 1.4C 4.2F), scaled to the 20g serving; fibre is not published") },
   // Not a packaged product, so the source is a reference table rather than a label. Black
   // coffee is close enough to nothing that the point is being able to log it at all.
@@ -179,7 +179,7 @@ export function scaled(food: Food, grams: number): ParsedFood {
 // Words that carry no food identity, so a leftover fragment made only of these is not an
 // unrecognised food — it is the grammar around one we already matched.
 const FILLER =
-  /\b(a|an|one|two|three|four|and|with|plus|of|some|the|my|then|also|served|side|sides|bowl|plate|portion|portions|cooked|uncooked|raw|dry|weighed|just|had|ate|eaten|eating|having|made|i|about|approx|approximately|g|grams?|grammes?|kg|ml|tbsps?|tsps?|tablespoons?|teaspoons?|spoon|spoons?|large|small|medium|extra|more|little|bit|pots?|tubs?|jars?|tins?|packs?|punnets?|knobs?|servings?|slices?|handfuls?|drizzle|splash|pinch)\b/g;
+  /\b(a|an|one|two|three|four|and|with|plus|of|some|the|my|then|also|served|side|sides|bowl|plate|portion|portions|cooked|uncooked|raw|dry|weighed|just|had|ate|eaten|eating|having|made|i|about|approx|approximately|am|are|is|was|were|be|been|to|have|has|going|want|fancy|for|now|today|tonight|lunch|dinner|breakfast|g|grams?|grammes?|kg|ml|tbsps?|tsps?|tablespoons?|teaspoons?|spoon|spoons?|large|small|medium|extra|more|little|bit|pots?|tubs?|jars?|tins?|packs?|punnets?|knobs?|servings?|slices?|handfuls?|drizzle|splash|pinch)\b/g;
 
 /**
  * Matches an alias only on word boundaries. `includes()` would match "oil" inside "boiled"
@@ -196,15 +196,28 @@ export function parseFood(text: string, extra: Food[] = []): { items: ParsedFood
   // original text. Joe puts the real weight in brackets on either side of the food — "3
   // uncooked (392g) chicken thighs", "some pesto (2 teaspoons)" — and once they are spaces
   // those read exactly like the unbracketed forms, so one set of rules covers both.
-  const normalised = text.toLowerCase().replace(/perinaise/g, "peri mayonnaise").replace(/[()[\]]/g, " ");
-  const found: ParsedFood[] = [];
+  // A phone keyboard types a curly apostrophe, so "Nando's" off Joe's iPhone never matched the
+  // stored "nando's". Swapped one-for-one rather than stripped, so every index still lines up.
+  const normalised = text.toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/perinaise/g, "peri mayonnaise").replace(/[()[\]]/g, " ");
+  const found: Array<ParsedFood & { at: number }> = [];
   const occupied: Array<[number, number]> = [];
-  // Everything the parser has accounted for gets blanked out; whatever survives is unknown.
+  // What is left once every food and every amount has been accounted for is unknown.
   let residue = normalised;
+  // The same text minus only the amounts already claimed. Food names stay visible here: a food
+  // has to be able to see that another one sits between it and a weight.
+  let unclaimed = normalised;
 
-  const blank = (start: number, end: number) => {
-    residue = residue.slice(0, start) + " ".repeat(end - start) + residue.slice(end);
+  const blankIn = (value: string, start: number, end: number) => value.slice(0, start) + " ".repeat(end - start) + value.slice(end);
+  const blankFood = (start: number, end: number) => { residue = blankIn(residue, start, end); };
+  const blankAmount = (start: number, end: number) => {
+    residue = blankIn(residue, start, end);
+    unclaimed = blankIn(unclaimed, start, end);
   };
+
+  // Which foods are named, and where. Finding them all first is what lets the amounts be
+  // handed out with the whole sentence in view.
+  type Named = { food: Food; alias: string; at: number; end: number };
+  const named: Named[] = [];
 
   // Scanned foods go first, so a product Joe has actually scanned wins the name over a generic
   // stored entry — his salmon rather than the app's idea of salmon. `FOODS`' own ordering is
@@ -223,13 +236,51 @@ export function parseFood(text: string, extra: Food[] = []): { items: ParsedFood
     if (!alias) continue;
 
     const aliasEnd = aliasIndex + alias.length;
-    const before = normalised.slice(Math.max(0, aliasIndex - 42), aliasIndex);
-    const after = normalised.slice(aliasEnd, aliasEnd + 32);
+    named.push({ food, alias, at: aliasIndex, end: aliasEnd });
+    occupied.push([aliasIndex, aliasEnd]);
+    blankFood(aliasIndex, aliasEnd);
+  }
+
+  /**
+   * The food directly in front of this one, with nothing but space between them.
+   *
+   * "150g of uncooked pesto pasta" is one noun phrase, and English compounds are head-final:
+   * the pesto describes the pasta and the weight belongs to the pasta. Reading it left to
+   * right gave the 150g to the pesto, because it sat between the number and the pasta — 468
+   * kcal of sauce out of a sentence about pasta.
+   *
+   * The limit of the rule is that two foods written with no conjunction ("chicken thighs
+   * broccoli") also read as one dish, so the weight lands on the last. That is a malformed
+   * list rather than a phrase, and whichever food loses out is flagged `assumed`, so it shows.
+   */
+  const modifierBefore = (entry: Named) =>
+    named.find((other) => other !== entry && other.end <= entry.at && /^\s*$/.test(normalised.slice(other.end, entry.at)));
+
+  // Rightmost first, so the head of a compound takes its weight before the word describing it
+  // gets a chance to.
+  for (const entry of [...named].sort((a, b) => b.at - a.at)) {
+    const { food, at: aliasIndex, end: aliasEnd } = entry;
+    const windowFrom = (index: number) => unclaimed.slice(Math.max(0, index - 42), index);
     // The basis word is captured, not just tolerated: a raw weighing of a cooked-basis food
     // has to be converted, and a missing alternative makes the whole gram match fail.
     // The basis word sits on either side of the number: "392g raw" and "uncooked 392g" are the
     // same claim, and before the brackets became spaces only the first form parsed.
-    const gramsBefore = before.match(new RegExp(`(?:(${BASIS})\\s+)?(\\d+(?:\\.\\d+)?)\\s*(?:g|grams?|grammes?)\\s*(?:of\\s*)?(?:(${BASIS})\\s*)?$`));
+    const GRAMS_BEFORE = new RegExp(`(?:(${BASIS})\\s+)?(\\d+(?:\\.\\d+)?)\\s*(?:g|grams?|grammes?)\\s*(?:of\\s*)?(?:(${BASIS})\\s*)?$`);
+
+    let before = windowFrom(aliasIndex);
+    let beforeEnd = aliasIndex;
+    let gramsBefore = before.match(GRAMS_BEFORE);
+    if (!gramsBefore) {
+      const modifier = modifierBefore(entry);
+      const across = modifier ? windowFrom(modifier.at) : null;
+      const match = across?.match(GRAMS_BEFORE);
+      if (modifier && across !== null && match) {
+        gramsBefore = match;
+        before = across;
+        beforeEnd = modifier.at;
+      }
+    }
+    const after = unclaimed.slice(aliasEnd, aliasEnd + 32);
     // Scanning forward must not cross a comma. "chicken thighs, 100g pasta" gave the chicken
     // the pasta's weight — every number was real, and the meal was still wrong.
     const gramsAfter = after.match(new RegExp(`^\\s*(\\d+(?:\\.\\d+)?)\\s*(?:g|grams?|grammes?)\\s*(?:(${BASIS})\\s*)?`));
@@ -268,7 +319,13 @@ export function parseFood(text: string, extra: Food[] = []): { items: ParsedFood
     // saying which is an uncooked one. This has to be a default rather than a no-op: his pasta
     // is stored on a cooked basis, and reading "100g pasta" as 100g cooked would log a third of
     // what he is about to eat. The conversion shows on the chip, so a wrong guess is visible.
-    const explicit = cookStateOf(stated?.basis) ?? cookStateOf(before.match(new RegExp(`\\b(${BASIS})\\s*$`))?.[1]);
+    // "192g cooked chicken" states its basis inside the alias `cooked chicken`, so the scan of
+    // the words in front finds nothing and the weight was read as uncooked — 192g of chicken
+    // logged as 138g. An alias that opens with a basis word is stating one.
+    const explicit =
+      cookStateOf(stated?.basis) ??
+      cookStateOf(before.match(new RegExp(`\\b(${BASIS})\\s*$`))?.[1]) ??
+      cookStateOf(entry.alias.match(new RegExp(`^(${BASIS})\\b`))?.[1]);
     const weighedAs = explicit ?? (stated && food.cookedRatio ? "uncooked" : undefined);
     const storedGrams = toStoredGrams(food, grams, weighedAs);
     const converted = storedGrams !== grams;
@@ -277,15 +334,14 @@ export function parseFood(text: string, extra: Food[] = []): { items: ParsedFood
       ...scaled(food, storedGrams),
       ...(converted ? { weighedGrams: grams, weighedAs } : {}),
       ...(assumed ? { assumed } : {}),
+      at: aliasIndex,
     });
-    occupied.push([aliasIndex, aliasEnd]);
 
-    blank(aliasIndex, aliasEnd);
-    if (gramsBefore) blank(aliasIndex - gramsBefore[0].length, aliasIndex);
-    if (spoonBefore) blank(aliasIndex - spoonBefore[0].length, aliasIndex);
-    if (wordBefore) blank(aliasIndex - wordBefore[0].length, aliasIndex);
-    if (gramsAfter) blank(aliasEnd, aliasEnd + gramsAfter[0].length);
-    if (spoonAfter) blank(aliasEnd, aliasEnd + spoonAfter[0].length);
+    if (gramsBefore) blankAmount(beforeEnd - gramsBefore[0].length, beforeEnd);
+    if (spoonBefore) blankAmount(beforeEnd - spoonBefore[0].length, beforeEnd);
+    if (wordBefore) blankAmount(beforeEnd - wordBefore[0].length, beforeEnd);
+    if (gramsAfter) blankAmount(aliasEnd, aliasEnd + gramsAfter[0].length);
+    if (spoonAfter) blankAmount(aliasEnd, aliasEnd + spoonAfter[0].length);
   }
 
   const unknown = residue
@@ -293,5 +349,11 @@ export function parseFood(text: string, extra: Food[] = []): { items: ParsedFood
     .map((segment) => segment.replace(/\d+(?:\.\d+)?/g, " ").replace(FILLER, " ").replace(/\s+/g, " ").trim())
     .filter((segment) => /[a-z]{3}/.test(segment));
 
-  return { items: found, unknown };
+  // Back into the order Joe said them, which is the order the chips read best in.
+  const items = found.sort((a, b) => a.at - b.at).map((item) => {
+    const copy: Partial<ParsedFood & { at?: number }> = { ...item };
+    delete copy.at;
+    return copy as ParsedFood;
+  });
+  return { items, unknown };
 }

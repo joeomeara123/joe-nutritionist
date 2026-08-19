@@ -387,3 +387,106 @@ describe("a counted portion is a count, not a weight", () => {
     expect(parseFood("3 chicken thighs (392g uncooked)").items[0].assumed).toBeUndefined();
   });
 });
+
+/**
+ * "150g of uncooked pesto pasta" is one noun phrase, and English compounds are head-final:
+ * the pesto describes the pasta, and the weight belongs to the pasta. The parser used to give
+ * the 150g to the pesto — it sat between the number and the pasta — and left the pasta on its
+ * 100g default. That is 150g of pesto, 468 kcal and 43g of fat, from a sentence about pasta.
+ */
+describe("a weight in front of a compound like 'pesto pasta'", () => {
+  const line = "I am about to have 3 chicken thighs and 150g of uncooked pesto pasta";
+
+  test("gives the weight to the food the compound is about", () => {
+    const pasta = parseFood(line).items.find((item) => item.id === "pasta");
+    expect(pasta?.weighedGrams).toBe(150);
+    expect(pasta?.weighedAs).toBe("uncooked");
+    expect(pasta?.grams).toBeCloseTo(337.5, 1);
+    expect(pasta?.assumed).toBeUndefined();
+  });
+
+  test("leaves the sauce as an unstated spoonful, and says so", () => {
+    const pesto = parseFood(line).items.find((item) => item.id === "pesto");
+    expect(pesto?.grams).toBeCloseTo(15, 1);
+    expect(pesto?.assumed).toBe("quantity");
+  });
+
+  test("still reads the rest of the sentence", () => {
+    const result = parseFood(line);
+    // Chips come out in the order Joe said them, so the sauce reads before the pasta it is on.
+    expect(result.items.map((item) => item.id)).toEqual(["chicken-thigh", "pesto", "pasta"]);
+    expect(result.items[0].grams).toBe(192);
+    expect(result.items[0].assumed).toBe("portionSize");
+    expect(result.unknown).toHaveLength(0);
+  });
+
+  test("the whole line comes to something a pasta dish could plausibly be", () => {
+    const items = parseFood(line).items;
+    const kcal = items.reduce((sum, item) => sum + item.calories, 0);
+    const fat = items.reduce((sum, item) => sum + item.fat, 0);
+    // Was 955 kcal and 57.9g of fat, almost half of it pesto.
+    expect(kcal).toBeCloseTo(922.9, 1);
+    expect(fat).toBeCloseTo(21.2, 1);
+  });
+
+  test("a conjunction still separates two foods", () => {
+    const items = parseFood("200g chicken thighs and broccoli").items;
+    // A stated meat weight is read as uncooked, so 200g of raw thigh is 144g cooked.
+    expect(items.find((item) => item.id === "chicken-thigh")?.weighedGrams).toBeCloseTo(200, 1);
+    expect(items.find((item) => item.id === "broccoli")?.assumed).toBe("quantity");
+  });
+
+  /**
+   * The known limit of reading a compound head-first. Two food names with nothing between them
+   * are read as one dish, so the weight goes to the last — which is right for "pesto pasta"
+   * and wrong for a list written without a conjunction. The loser is flagged `assumed`, so it
+   * is visible rather than silent.
+   */
+  test("two foods jammed together with no conjunction read as one dish", () => {
+    const items = parseFood("200g chicken thighs broccoli").items;
+    expect(items.find((item) => item.id === "broccoli")?.grams).toBeCloseTo(200, 1);
+    // He gave a weight and it went elsewhere, so the chicken is short of an amount rather than
+    // short of a portion size — "say the amount" is the useful thing to tell him.
+    expect(items.find((item) => item.id === "chicken-thigh")?.assumed).toBe("quantity");
+  });
+});
+
+describe("three ways a stated fact went missing", () => {
+  /** A phone keyboard types ’ rather than '. Joe logs from his phone. */
+  test("reads a curly apostrophe the same as a straight one", () => {
+    for (const line of ["100g chicken and Nando’s sauce", "100g chicken and Nando's sauce"]) {
+      const result = parseFood(line);
+      expect(result.items.map((item) => item.id)).toContain("nandos");
+      expect(result.unknown).toHaveLength(0);
+    }
+  });
+
+  test("knows the sauce by the name it is actually written with", () => {
+    for (const name of ["nando's sauce", "nandos sauce", "nando's peri peri sauce", "peri peri sauce"]) {
+      expect(parseFood(`200g chicken and ${name}`).unknown).toHaveLength(0);
+    }
+  });
+
+  /**
+   * "192g cooked chicken" was logged as 138g. The basis word sits inside the alias `cooked
+   * chicken`, so the scan of the words in front of it found nothing and fell back to reading
+   * the weight as uncooked — converting away a quarter of the chicken Joe had just weighed.
+   */
+  test("an alias that opens with a basis word is stating the basis", () => {
+    const cooked = parseFood("192g cooked chicken").items[0];
+    expect(cooked.grams).toBe(192);
+    expect(cooked.weighedGrams).toBeUndefined();
+
+    // Said the other way, the conversion still happens and still shows.
+    const uncooked = parseFood("192g raw chicken thighs").items[0];
+    expect(uncooked.weighedGrams).toBe(192);
+    expect(uncooked.grams).toBeCloseTo(138.2, 1);
+  });
+
+  test("the example meal on the dashboard now parses back to itself", () => {
+    const result = parseFood("192g cooked chicken, one Veetee sticky rice pot and Nando's sauce");
+    expect(result.items.map((item) => item.id)).toEqual(["chicken-thigh", "sticky-rice", "nandos"]);
+    expect(result.items[0].grams).toBe(192);
+    expect(result.unknown).toHaveLength(0);
+  });
+});
